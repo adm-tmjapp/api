@@ -48,7 +48,24 @@ create_secret_from_env() {
   local secret_name="$2"
   local value
 
-  value="$(grep -E "^${env_name}=" .env 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^\"//' -e 's/\"$//' -e \"s/^'//\" -e \"s/'$//\")"
+  value="$(node -e "
+    const fs = require('fs');
+    const name = process.argv[1];
+    if (!fs.existsSync('.env')) process.exit(0);
+    const line = fs.readFileSync('.env', 'utf8')
+      .split(/\\r?\\n/)
+      .reverse()
+      .find((item) => item.startsWith(name + '='));
+    if (!line) process.exit(0);
+    let value = line.slice(name.length + 1).trim();
+    if (
+      (value.startsWith('\\\"') && value.endsWith('\\\"')) ||
+      (value.startsWith(\"'\") && value.endsWith(\"'\"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.stdout.write(value);
+  " "${env_name}")"
   if [[ -z "${value}" ]]; then
     echo "Skipping ${secret_name}; ${env_name} is not set in .env"
     return
