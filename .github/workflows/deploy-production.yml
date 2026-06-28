@@ -56,7 +56,7 @@ jobs:
             --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${SERVICE}:${GITHUB_SHA}" \
             --region "${REGION}" \
             --platform managed \
-            --allow-unauthenticated \
+            --no-invoker-iam-check \
             --min-instances 0 \
             --max-instances 2 \
             --cpu 1 \
