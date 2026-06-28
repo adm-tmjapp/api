@@ -1,0 +1,62 @@
+{
+  "name": "tmjapp-api",
+  "version": "1.0.17",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "nodemon --exec \"ts-node --prefer-ts-exts\" src/server.ts",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug": "node --inspect-brk dist/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wildsonsantos/tmjapp-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wildsonsantos/tmjapp-api/issues"
+  },
+  "homepage": "https://github.com/wildsonsantos/tmjapp-api#readme",
+  "description": "",
+  "dependencies": {
+    "@coreui/react": "^5.9.0",
+    "aws-sdk": "^2.1692.0",
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "debug": "^4.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-validator": "^7.2.1",
+    "firebase-admin": "^13.2.0",
+    "haversine-distance": "^1.2.4",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.12.1",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.12",
+    "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "twilio": "^5.11.2",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.13.10",
+    "@types/nodemailer": "^7.0.5",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  },
+  "overrides": {
+    "gcp-metadata": "^6.1.1"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "basePath": "rides_live/{rideId}",
+  "channels": {
+    "meta": {
+      "path": "rides_live/{rideId}/meta",
+      "writeBy": ["backend"],
+      "readBy": ["driver", "passenger"],
+      "schema": {
+        "rideId": "string",
+        "driverId": "string",
+        "passengerId": "string",
+        "status": "pending|accepted|ongoing|completed|canceled",
+        "createdAt": "number(ms)",
+        "updatedAt": "number(ms)"
+      }
+    },
+    "driver_location": {
+      "path": "rides_live/{rideId}/driver_location",
+      "writeBy": ["driver"],
+      "readBy": ["driver", "passenger", "backend"],
+      "schema": {
+        "lat": "number",
+        "lng": "number",
+        "speed": "number|null",
+        "heading": "number|null",
+        "accuracy": "number",
+        "ts": "number(ms)",
+        "seq": "number"
+      }
+    },
+    "passenger_location": {
+      "path": "rides_live/{rideId}/passenger_location",
+      "writeBy": ["passenger"],
+      "readBy": ["driver", "passenger", "backend"],
+      "schema": {
+        "lat": "number",
+        "lng": "number",
+        "accuracy": "number",
+        "ts": "number(ms)",
+        "seq": "number"
+      }
+    },
+    "presence": {
+      "path": "rides_live/{rideId}/presence/{userId}",
+      "writeBy": ["driver", "passenger"],
+      "readBy": ["driver", "passenger", "backend"],
+      "schema": {
+        "state": "ONLINE|OFFLINE|BACKGROUND",
+        "ts": "number(ms)",
+        "appState": "foreground|background"
+      }
+    },
+    "eta": {
+      "path": "rides_live/{rideId}/eta",
+      "writeBy": ["backend"],
+      "readBy": ["driver", "passenger"],
+      "schema": {
+        "distanceM": "number",
+        "etaSec": "number",
+        "updatedAt": "number(ms)",
+        "source": "backend"
+      }
+    },
+    "signals": {
+      "path": "rides_live/{rideId}/signals",
+      "writeBy": ["backend"],
+      "readBy": ["driver", "passenger"],
+      "schema": {
+        "arrivedAtPickupAt": "number(ms)|null",
+        "startedAt": "number(ms)|null",
+        "completedAt": "number(ms)|null"
+      }
+    }
+  }
+}

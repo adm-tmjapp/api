@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "rides_live": {
+      "$rideId": {
+        ".read": "auth != null && auth.token.rideId === $rideId",
+        "meta": {
+          ".write": "auth != null && auth.token.role === 'backend'"
+        },
+        "driver_location": {
+          ".write": "auth != null && auth.token.rideId === $rideId && auth.token.role === 'driver' && newData.hasChildren(['lat','lng','ts'])"
+        },
+        "passenger_location": {
+          ".write": "auth != null && auth.token.rideId === $rideId && auth.token.role === 'passenger' && newData.hasChildren(['lat','lng','ts'])"
+        },
+        "presence": {
+          "$userId": {
+            ".write": "auth != null && auth.uid === $userId && auth.token.rideId === $rideId && newData.hasChildren(['state','ts'])"
+          }
+        },
+        "eta": {
+          ".write": "auth != null && auth.token.role === 'backend'"
+        },
+        "signals": {
+          ".write": "auth != null && auth.token.role === 'backend'"
+        }
+      }
+    }
+  }
+}

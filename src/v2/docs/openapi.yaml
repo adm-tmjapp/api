@@ -1,0 +1,6573 @@
+openapi: 3.0.0
+info:
+  title: TMJApp API V2
+  version: 2.0.0
+  description: API v2 organizada por visoes (admin, passenger, driver).
+servers:
+  - url: http://localhost:3000/api/v2
+  - url: http://api.tmjapp.com.br/api/v2
+tags:
+  - name: Auth V2
+  - name: Admin V2
+  - name: Passenger V2
+  - name: Driver V2
+paths:
+  /auth/register:
+    post:
+      tags: [Auth V2]
+      summary: Cadastrar novo usuario
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              driver:
+                summary: Cadastro motorista (onboarding por etapas)
+                value:
+                  name: "Motorista Exemplo"
+                  email: "motorista@exemplo.com"
+                  phone: "81999990000"
+                  password: "Senha@123"
+                  role: "driver"
+      responses:
+        '201':
+          description: Usuario cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccessResponse'
+        '400':
+          description: Dados invalidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Email ou telefone ja cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth V2]
+      summary: Login do usuario (email/telefone/identifier)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              porEmail:
+                summary: Login com email no campo identifier
+                value:
+                  identifier: "usuario@exemplo.com"
+                  password: "Senha@123"
+              porTelefone:
+                summary: Login com telefone no campo identifier
+                value:
+                  identifier: "81999999999"
+                  password: "Senha@123"
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccessResponse'
+        '400':
+          description: Dados obrigatorios ausentes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Credenciais invalidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth V2]
+      summary: Encerrar sessão do usuário autenticado
+      responses:
+        '200':
+          description: Logout realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '401':
+          description: Token ausente ou inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/onboarding-status:
+    get:
+      tags: [Auth V2]
+      summary: Consultar status de onboarding do usuario autenticado
+      responses:
+        '200':
+          description: Status retornado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  onboardingStatus:
+                    $ref: '#/components/schemas/OnboardingStatus'
+        '401':
+          description: Token ausente/invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Acesso negado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/onboarding-status/{id}:
+    get:
+      tags: [Auth V2]
+      summary: Consultar onboarding por id (admin ou proprio usuario)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status retornado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  onboardingStatus:
+                    $ref: '#/components/schemas/OnboardingStatus'
+        '401':
+          description: Token ausente/invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Acesso negado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/email/send-code:
+    post:
+      tags: [Auth V2]
+      summary: Enviar codigo de validacao para o email do usuario autenticado
+      responses:
+        '200':
+          description: Codigo enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendCodeResponse'
+        '400':
+          description: Falha ao enviar codigo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/email/verify:
+    post:
+      tags: [Auth V2]
+      summary: Validar email com codigo
+      description: Validacao de email ativa o usuario e marca o telefone como validado temporariamente enquanto a verificacao por SMS estiver desabilitada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCodeRequest'
+      responses:
+        '200':
+          description: Email validado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationSuccessResponse'
+        '400':
+          description: Codigo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/email/validate:
+    post:
+      tags: [Auth V2]
+      summary: Alias para validar email com codigo
+      description: Validacao de email ativa o usuario e marca o telefone como validado temporariamente enquanto a verificacao por SMS estiver desabilitada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCodeRequest'
+      responses:
+        '200':
+          description: Email validado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationSuccessResponse'
+
+  /auth/phone/send-code:
+    post:
+      tags: [Auth V2]
+      summary: Enviar codigo de validacao para o celular do usuario autenticado via AWS SNS
+      description: Endpoint mantido por compatibilidade. A ativacao do usuario nao depende temporariamente de SMS.
+      responses:
+        '200':
+          description: Codigo enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendCodeResponse'
+        '400':
+          description: Falha ao enviar codigo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/phone/verify:
+    post:
+      tags: [Auth V2]
+      summary: Validar celular com codigo
+      description: Endpoint mantido por compatibilidade. A ativacao do usuario nao depende temporariamente de SMS.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCodeRequest'
+      responses:
+        '200':
+          description: Celular validado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationSuccessResponse'
+        '400':
+          description: Codigo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/phone/validate:
+    post:
+      tags: [Auth V2]
+      summary: Alias para validar celular com codigo
+      description: Endpoint mantido por compatibilidade. A ativacao do usuario nao depende temporariamente de SMS.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCodeRequest'
+      responses:
+        '200':
+          description: Celular validado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationSuccessResponse'
+
+  /admin/products:
+    get:
+      tags: [Admin V2]
+      summary: Listar produtos
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Admin V2]
+      summary: Criar produto
+      responses:
+        '201': { description: Criado }
+
+  /admin/dashboard:
+    get:
+      tags: [Admin V2]
+      summary: Dashboard agregado do backoffice
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [weekly, biweekly, monthly]
+      responses:
+        '200':
+          description: Dashboard retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardResponse'
+
+  /admin/users:
+    get:
+      tags: [Admin V2]
+      summary: Listar usuarios/motoristas com filtros administrativos
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [passenger, driver, admin]
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING_EMAIL, PENDING_PHONE, ACTIVE, BLOCKED]
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Usuarios retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUsersResponse'
+
+  /admin/users/{id}/unblock:
+    put:
+      tags: [Admin V2]
+      summary: Desbloquear usuario administrativo
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usuario desbloqueado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/AdminUserItem'
+        '404':
+          description: Usuario nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /admin/payments:
+    get:
+      tags: [Admin V2]
+      summary: Listar pagamentos administrativos
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, completed, failed]
+        - in: query
+          name: method
+          schema:
+            type: string
+            enum: [credit_card, debit_card, cash]
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pagamentos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPaymentsResponse'
+
+  /admin/search:
+    get:
+      tags: [Admin V2]
+      summary: Busca global do backoffice
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resultado de busca retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSearchResponse'
+        '422':
+          description: Busca invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/driver-documents:
+    get:
+      tags: [Admin V2]
+      summary: Listar documentos com dados enriquecidos do usuario
+      parameters:
+        - in: query
+          name: user
+          schema:
+            type: string
+        - in: query
+          name: type
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Documentos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDriverDocumentsResponse'
+
+  /admin/driver-documents/{id}/approve:
+    put:
+      tags: [Admin V2]
+      summary: Aprovar documento unitario
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Documento aprovado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDocumentActionResponse'
+
+  /admin/driver-documents/{id}/reject:
+    put:
+      tags: [Admin V2]
+      summary: Rejeitar documento unitario
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejectionReason:
+                  type: string
+      responses:
+        '200':
+          description: Documento rejeitado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDocumentActionResponse'
+
+  /admin/driver-documents/batch/approve:
+    put:
+      tags: [Admin V2]
+      summary: Aprovar documentos em lote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminBatchIdsRequest'
+      responses:
+        '200':
+          description: Lote aprovado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBatchActionResponse'
+
+  /admin/driver-documents/batch/reject:
+    put:
+      tags: [Admin V2]
+      summary: Rejeitar documentos em lote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AdminBatchIdsRequest'
+                - type: object
+                  properties:
+                    rejectionReason:
+                      type: string
+      responses:
+        '200':
+          description: Lote rejeitado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBatchActionResponse'
+
+  /admin/vehicles:
+    get:
+      tags: [Admin V2]
+      summary: Listar veiculos com dados enriquecidos do proprietario
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+        - in: query
+          name: userId
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Veiculos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminVehiclesResponse'
+
+  /admin/vehicles/{id}/approve:
+    put:
+      tags: [Admin V2]
+      summary: Aprovar veiculo unitario
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Veiculo aprovado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminVehicleActionResponse'
+
+  /admin/vehicles/{id}/reject:
+    put:
+      tags: [Admin V2]
+      summary: Rejeitar veiculo unitario
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Veiculo rejeitado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminVehicleActionResponse'
+
+  /admin/vehicles/batch/approve:
+    put:
+      tags: [Admin V2]
+      summary: Aprovar veiculos em lote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminBatchIdsRequest'
+      responses:
+        '200':
+          description: Lote aprovado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBatchActionResponse'
+
+  /admin/vehicles/batch/reject:
+    put:
+      tags: [Admin V2]
+      summary: Rejeitar veiculos em lote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminBatchIdsRequest'
+      responses:
+        '200':
+          description: Lote rejeitado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBatchActionResponse'
+
+  /admin/audit-logs:
+    get:
+      tags: [Admin V2]
+      summary: Listar logs de auditoria administrativa
+      parameters:
+        - in: query
+          name: action
+          schema:
+            type: string
+        - in: query
+          name: targetType
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Logs retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuditLogsResponse'
+
+  /admin/usage/sms/monthly:
+    get:
+      tags: [Admin V2]
+      summary: Consultar uso mensal de SMS para alerta de consumo
+      parameters:
+        - in: query
+          name: month
+          required: false
+          schema:
+            type: string
+          description: Mes no formato YYYY-MM. Se omitido, usa o mes atual.
+      responses:
+        '200':
+          description: Resumo mensal de envios SMS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmsMonthlyUsage'
+
+  /passenger/rides:
+    get:
+      tags: [Passenger V2]
+      summary: Listar corridas do passageiro
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PassengerRideDetail'
+    post:
+      tags: [Passenger V2]
+      summary: Criar corrida
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerCreateRideRequest'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerCreateRideResponse'
+
+  /passenger/rides/{id}:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar detalhe da corrida do passageiro
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhe retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRideDetail'
+
+  /passenger/rides/{id}/checkout:
+    put:
+      tags: [Passenger V2]
+      summary: Definir produto e metodo de pagamento da corrida
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerRideCheckoutRequest'
+      responses:
+        '200':
+          description: Checkout salvo com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRideCheckoutResponse'
+
+  /passenger/rides/{id}/cancel:
+    patch:
+      tags: [Passenger V2]
+      summary: Cancelar corrida do passageiro
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerCancelRideRequest'
+      responses:
+        '200':
+          description: Corrida cancelada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerCancelRideResponse'
+
+  /passenger/rides/{id}/status:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar status resumido da corrida
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRideStatusResponse'
+
+  /passenger/rides/{id}/realtime-token:
+    post:
+      tags: [Passenger V2]
+      summary: Gerar token realtime do passageiro para acompanhar a corrida
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token realtime gerado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRealtimeTokenResponse'
+
+  /passenger/rides/{id}/eta:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar ultima localizacao/ETA conhecido do motorista
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ETA/localizacao retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRideEtaResponse'
+
+  /passenger/payments:
+    post:
+      tags: [Passenger V2]
+      summary: Registrar pagamento da corrida
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerCreatePaymentRequest'
+      responses:
+        '201':
+          description: Pagamento registrado
+
+  /passenger/payments/options:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar meios de pagamento habilitados para a corrida/contexto
+      parameters:
+        - in: query
+          name: rideId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Opcoes retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerPaymentOptionsResponse'
+
+  /passenger/payments/methods:
+    get:
+      tags: [Passenger V2]
+      summary: Listar metodos de pagamento salvos do passageiro
+      responses:
+        '200':
+          description: Metodos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerPaymentMethodsResponse'
+    post:
+      tags: [Passenger V2]
+      summary: Cadastrar novo metodo de pagamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerPaymentMethodRequest'
+      responses:
+        '201':
+          description: Metodo criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerPaymentMethodItem'
+
+  /passenger/payments/methods/card-tokenize:
+    post:
+      tags: [Passenger V2]
+      summary: Tokenizar e salvar cartao do passageiro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerTokenizeCardRequest'
+      responses:
+        '201':
+          description: Cartao salvo com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerPaymentMethodItem'
+        '422':
+          description: Falha de validacao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /passenger/payments/methods/{id}:
+    delete:
+      tags: [Passenger V2]
+      summary: Remover metodo de pagamento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metodo removido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerBasicSuccessResponse'
+
+  /passenger/payments/methods/{id}/default:
+    patch:
+      tags: [Passenger V2]
+      summary: Definir metodo de pagamento padrao
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metodo padrao atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerBasicSuccessResponse'
+
+  /passenger/rides/{rideId}/payments/pix:
+    post:
+      tags: [Passenger V2]
+      summary: Criar pagamento PIX da corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerCreatePixPaymentRequest'
+      responses:
+        '201':
+          description: Pagamento PIX criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerCreatePixPaymentResponse'
+
+  /passenger/rides/{rideId}/payments/card:
+    post:
+      tags: [Passenger V2]
+      summary: Criar pagamento da corrida com cartao avulso
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerCreateCardPaymentRequest'
+      responses:
+        '201':
+          description: Pagamento com cartao criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerCreateCardPaymentResponse'
+        '422':
+          description: Falha de validacao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /passenger/rides/{rideId}/payments/card/saved:
+    post:
+      tags: [Passenger V2]
+      summary: Criar pagamento da corrida com cartao salvo
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerCreateSavedCardPaymentRequest'
+      responses:
+        '201':
+          description: Pagamento com cartao salvo criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerCreateCardPaymentResponse'
+        '404':
+          description: Metodo de pagamento nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Falha de validacao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /passenger/rides/{rideId}/payments/status:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar status do pagamento da corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status do pagamento retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRidePaymentStatusResponse'
+
+  /passenger/rides/{rideId}/payments/receipt:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar comprovante do pagamento da corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comprovante retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerRidePaymentReceiptResponse'
+
+  /webhooks/asaas:
+    post:
+      tags: [Passenger V2]
+      summary: Webhook da Asaas para atualizacao de status de pagamento
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Webhook processado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsaasWebhookResponse'
+
+  /passenger/profile/photo:
+    post:
+      tags: [Passenger V2]
+      summary: Atualizar foto de perfil do passageiro
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Foto atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerProfilePhotoResponse'
+
+  /passenger/profile/address:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar endereco principal do passageiro
+      responses:
+        '200':
+          description: Endereco retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerAddress'
+    put:
+      tags: [Passenger V2]
+      summary: Atualizar endereco principal do passageiro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassengerAddress'
+      responses:
+        '200':
+          description: Endereco atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerBasicSuccessResponse'
+
+  /passenger/profile/address-history:
+    get:
+      tags: [Passenger V2]
+      summary: Listar historico de enderecos do passageiro
+      responses:
+        '200':
+          description: Historico retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerAddressHistoryResponse'
+    post:
+      tags: [Passenger V2]
+      summary: Salvar endereco no historico do passageiro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/PassengerAddress'
+                - type: object
+                  properties:
+                    label:
+                      type: string
+      responses:
+        '200':
+          description: Endereco salvo no historico
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerBasicSuccessResponse'
+
+  /passenger/onboarding-status:
+    get:
+      tags: [Passenger V2]
+      summary: Consultar status de onboarding do passageiro
+      responses:
+        '200':
+          description: Onboarding retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerOnboardingStatus'
+
+  /passenger/notifications:
+    get:
+      tags: [Passenger V2]
+      summary: Listar notificacoes do passageiro
+      responses:
+        '200':
+          description: Notificacoes retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerNotificationsResponse'
+
+  /passenger/notifications/{id}/read:
+    patch:
+      tags: [Passenger V2]
+      summary: Marcar notificacao como lida
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notificacao atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerBasicSuccessResponse'
+
+  /passenger/notifications/read-all:
+    patch:
+      tags: [Passenger V2]
+      summary: Marcar todas as notificacoes como lidas
+      responses:
+        '200':
+          description: Notificacoes atualizadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassengerBasicSuccessResponse'
+
+  /driver/dashboard:
+    get:
+      tags: [Driver V2]
+      summary: Dados consolidados do dashboard do motorista
+      parameters:
+        - $ref: '#/components/parameters/DriverHighPriorityFilter'
+        - $ref: '#/components/parameters/DriverCategoryFilter'
+        - $ref: '#/components/parameters/DriverLatFilter'
+        - $ref: '#/components/parameters/DriverLngFilter'
+        - $ref: '#/components/parameters/DriverRadiusKmFilter'
+      responses:
+        '200':
+          description: Dashboard retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDashboardResponse'
+        '404':
+          description: Motorista nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/availability:
+    patch:
+      tags: [Driver V2]
+      summary: Alternar motorista online/offline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverAvailabilityRequest'
+      responses:
+        '200':
+          description: Disponibilidade atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverAvailabilityResponse'
+        '400':
+          description: Availability invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Motorista nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/location:
+    post:
+      tags: [Driver V2]
+      summary: Atualizar localizacao operacional do motorista online
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverOperationalLocationRequest'
+      responses:
+        '200':
+          description: Localizacao atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverOperationalLocationResponse'
+        '401':
+          description: Token ausente ou invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Motorista nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Payload de localizacao invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '429':
+          description: Janela minima entre atualizacoes nao respeitada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/device-token:
+    post:
+      tags: [Driver V2]
+      summary: Registrar token de push do dispositivo do motorista
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDeviceTokenRequest'
+      responses:
+        '200':
+          description: Token registrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '401':
+          description: Token ausente ou invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Motorista nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Payload invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/pending:
+    get:
+      tags: [Driver V2]
+      summary: Listar corridas pendentes com filtros operacionais
+      parameters:
+        - $ref: '#/components/parameters/DriverHighPriorityFilter'
+        - $ref: '#/components/parameters/DriverCategoryFilter'
+        - $ref: '#/components/parameters/DriverLatFilter'
+        - $ref: '#/components/parameters/DriverLngFilter'
+        - $ref: '#/components/parameters/DriverRadiusKmFilter'
+        - $ref: '#/components/parameters/DriverLimitFilter'
+        - $ref: '#/components/parameters/DriverOffsetFilter'
+      responses:
+        '200':
+          description: Corridas pendentes listadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPendingRidesResponse'
+
+  /driver/rides/{rideId}/accept:
+    post:
+      tags: [Driver V2]
+      summary: Aceitar corrida pendente (operacao atomica)
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Corrida aceita
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverAcceptRideResponse'
+        '400':
+          description: Ride ID invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Corrida nao encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Corrida ja aceita ou indisponivel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Motorista offline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/current:
+    get:
+      tags: [Driver V2]
+      summary: Retornar corrida atual do motorista autenticado
+      responses:
+        '200':
+          description: Corrida atual retornada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverCurrentRideResponse'
+
+  /driver/rides/{rideId}/realtime-token:
+    post:
+      tags: [Driver V2]
+      summary: Gerar token realtime Firebase para tracking da corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token realtime gerado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRealtimeTokenResponse'
+        '400':
+          description: Ride ID invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Corrida nao atribuida ao motorista autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Corrida nao encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/{rideId}/location/snapshot:
+    post:
+      tags: [Driver V2]
+      summary: Persistir snapshot oficial da localizacao do motorista
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverLocationSnapshotRequest'
+      responses:
+        '201':
+          description: Snapshot salvo com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverLocationSnapshotResponse'
+        '400':
+          description: Payload invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Corrida nao atribuida ao motorista autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Corrida nao encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          description: Snapshot enviado antes da janela minima
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/{rideId}/eta:
+    get:
+      tags: [Driver V2]
+      summary: Calcular ETA operacional com base no ultimo snapshot
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ETA retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideEtaResponse'
+        '400':
+          description: Ride ID invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Corrida nao atribuida ao motorista autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Corrida nao encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/history/summary:
+    get:
+      tags: [Driver V2]
+      summary: Resumo financeiro e operacional do histórico de corridas
+      parameters:
+        - in: query
+          name: period
+          required: false
+          schema:
+            type: string
+            enum: [week, month, custom]
+        - in: query
+          name: startDate
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: endDate
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Resumo retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideHistorySummaryResponse'
+        '422':
+          description: Faixa de datas inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/history:
+    get:
+      tags: [Driver V2]
+      summary: Histórico paginado de corridas finalizadas do motorista
+      parameters:
+        - in: query
+          name: period
+          required: false
+          schema:
+            type: string
+            enum: [week, month, custom]
+        - in: query
+          name: startDate
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: endDate
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Histórico retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideHistoryListResponse'
+        '422':
+          description: Faixa de datas inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/{rideId}/history-detail:
+    get:
+      tags: [Driver V2]
+      summary: Detalhe completo da corrida finalizada
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhe retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideHistoryDetail'
+        '422':
+          description: Ride ID inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '404':
+          description: Corrida não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/{rideId}/support/options:
+    get:
+      tags: [Driver V2]
+      summary: Opções de suporte disponíveis para a corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Opções retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideSupportOptionsResponse'
+        '422':
+          description: Ride ID inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '404':
+          description: Corrida não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/{rideId}/support/tickets:
+    post:
+      tags: [Driver V2]
+      summary: Abrir ticket de suporte para a corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverRideSupportTicketRequest'
+      responses:
+        '201':
+          description: Ticket criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideSupportTicketResponse'
+        '422':
+          description: Payload inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '404':
+          description: Corrida não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/{rideId}/support/payment-issue:
+    post:
+      tags: [Driver V2]
+      summary: Relatar problema com valor recebido
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverRidePaymentIssueRequest'
+      responses:
+        '201':
+          description: Ticket criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideSupportSimpleTicketResponse'
+        '422':
+          description: Payload inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '404':
+          description: Corrida não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/{rideId}/support/forgotten-object:
+    post:
+      tags: [Driver V2]
+      summary: Relatar objeto esquecido
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverRideForgottenObjectRequest'
+      responses:
+        '201':
+          description: Ticket criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideSupportSimpleTicketResponse'
+        '422':
+          description: Payload inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '404':
+          description: Corrida não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/rides/{rideId}/support/passenger-absent:
+    post:
+      tags: [Driver V2]
+      summary: Solicitar cancelamento sem taxa por passageiro ausente
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverRidePassengerAbsentRequest'
+      responses:
+        '201':
+          description: Solicitação aberta com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRidePassengerAbsentResponse'
+        '422':
+          description: Payload inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '404':
+          description: Corrida não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /uploads:
+    post:
+      tags: [Driver V2]
+      summary: Upload de anexos para fluxos de suporte
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, context]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                context:
+                  type: string
+                  example: ride_support
+      responses:
+        '201':
+          description: Arquivo enviado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadAssetResponse'
+        '422':
+          description: Payload inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /support/contact:
+    get:
+      tags: [Driver V2]
+      summary: Retornar canal de contato do suporte
+      responses:
+        '200':
+          description: Contato retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRideSupportContactResponse'
+
+  /driver/wallet/summary:
+    get:
+      tags: [Driver V2]
+      summary: Resumo da carteira do motorista
+      parameters:
+        - in: query
+          name: period
+          required: false
+          schema:
+            type: string
+            enum: [today, week, month]
+      responses:
+        '200':
+          description: Resumo retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverWalletSummaryResponse'
+
+  /driver/wallet/activities:
+    get:
+      tags: [Driver V2]
+      summary: Listar atividades/lançamentos da carteira
+      parameters:
+        - in: query
+          name: type
+          required: false
+          schema:
+            type: string
+            enum: [RIDE_CREDIT, BONUS, PIX_TRANSFER_DEBIT, ADJUSTMENT]
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Atividades retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverWalletActivitiesResponse'
+
+  /driver/wallet/transfers/pix:
+    post:
+      tags: [Driver V2]
+      summary: Solicitar transferência PIX (CPF)
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverPixTransferRequest'
+      responses:
+        '201':
+          description: Transferência criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPixTransferCreateResponse'
+        '400':
+          description: Payload inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Chave de idempotência em processamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Saldo insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/wallet/transfers/{transferId}:
+    get:
+      tags: [Driver V2]
+      summary: Detalhes da transferência
+      parameters:
+        - in: path
+          name: transferId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transferência retornada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTransferDetailsResponse'
+        '400':
+          description: Transfer ID inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Transferência não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/wallet/transfers/{transferId}/receipt:
+    get:
+      tags: [Driver V2]
+      summary: Retornar comprovante da transferência
+      parameters:
+        - in: path
+          name: transferId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comprovante retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverTransferReceiptResponse'
+        '400':
+          description: Transfer ID inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Transferência não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/profile/photo:
+    put:
+      tags: [Driver V2]
+      summary: Salvar foto de perfil do motorista autenticado
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Foto salva com sucesso e etapa de profile photo concluida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/AuthenticatedUser'
+        '400':
+          description: Arquivo nao enviado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Nao autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/profile:
+    get:
+      tags: [Driver V2]
+      summary: Buscar perfil do motorista autenticado
+      responses:
+        '200':
+          description: Perfil retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfileResponse'
+        '404':
+          description: Motorista não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+    put:
+      tags: [Driver V2]
+      summary: Atualizar dados do perfil do motorista
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverProfileUpdateRequest'
+      responses:
+        '200':
+          description: Perfil atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '409':
+          description: E-mail ou telefone já utilizados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Falha de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/vehicle:
+    get:
+      tags: [Driver V2]
+      summary: Buscar veículo ativo do motorista autenticado
+      responses:
+        '200':
+          description: Veículo retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfileVehicleResponse'
+        '404':
+          description: Motorista não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/vehicles:
+    get:
+      tags: [Driver V2]
+      summary: Listar veículos do motorista autenticado
+      responses:
+        '200':
+          description: Veículos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverVehiclesListResponse'
+        '404':
+          description: Motorista não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+    post:
+      tags: [Driver V2]
+      summary: Adicionar novo veículo fora do onboarding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverVehicleCreateRequest'
+      responses:
+        '201':
+          description: Veículo cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverVehicleCreateResponse'
+        '409':
+          description: Placa já cadastrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Falha de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/vehicles/{vehicleId}/activate:
+    patch:
+      tags: [Driver V2]
+      summary: Ativar veículo do motorista
+      parameters:
+        - in: path
+          name: vehicleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Veículo ativado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '404':
+          description: Veículo não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Veículo bloqueado ou documentação pendente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/vehicles/{vehicleId}/documents:
+    get:
+      tags: [Driver V2]
+      summary: Buscar documentos de um veículo do motorista
+      parameters:
+        - in: path
+          name: vehicleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Documentos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverVehicleDocumentsResponse'
+        '404':
+          description: Veículo não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+    post:
+      tags: [Driver V2]
+      summary: Enviar documento do veículo
+      parameters:
+        - in: path
+          name: vehicleId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [type, file]
+              properties:
+                type:
+                  type: string
+                  enum: [CRLV, VEHICLE_FRONT, VEHICLE_BACK, VEHICLE_INTERIOR]
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Documento enviado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverVehicleDocumentUploadResponse'
+        '404':
+          description: Veículo não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Falha de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/vehicles/{vehicleId}/photo:
+    post:
+      tags: [Driver V2]
+      summary: Enviar foto principal do veículo
+      parameters:
+        - in: path
+          name: vehicleId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Foto enviada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverVehiclePhotoUploadResponse'
+        '404':
+          description: Veículo não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '422':
+          description: Falha de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/documents:
+    get:
+      tags: [Driver V2]
+      summary: Buscar documentos do motorista autenticado
+      responses:
+        '200':
+          description: Documentos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfileDocumentsResponse'
+        '404':
+          description: Motorista não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/address:
+    get:
+      tags: [Driver V2]
+      summary: Buscar endereco atual do motorista autenticado
+      responses:
+        '200':
+          description: Endereco retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverAddress'
+        '404':
+          description: Motorista nao encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+    put:
+      tags: [Driver V2]
+      summary: Atualizar endereco atual do motorista autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverAddressUpdateRequest'
+      responses:
+        '200':
+          description: Endereco atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '422':
+          description: Endereco invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/address-history:
+    get:
+      tags: [Driver V2]
+      summary: Buscar historico de enderecos do motorista autenticado
+      responses:
+        '200':
+          description: Historico retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverAddressHistoryResponse'
+    post:
+      tags: [Driver V2]
+      summary: Salvar endereco no historico do motorista autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverAddressHistoryCreateRequest'
+      responses:
+        '200':
+          description: Endereco salvo com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '422':
+          description: Endereco invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver-documents/upload:
+    post:
+      tags: [Driver V2]
+      summary: Enviar documento unitario do motorista
+      description: |
+        Aceita tipos genericos para documentos unitarios do perfil. Para CNH frente/verso e selfie em lote, o endpoint oficial continua sendo `/driver/onboarding/documents`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [type, file]
+              properties:
+                type:
+                  type: string
+                  enum:
+                    [
+                      comprovante_residencia,
+                      antecedentes_criminais,
+                      residence_proof,
+                      criminal_record,
+                      cnh,
+                      crlv,
+                      rg,
+                      cpf,
+                      selfie,
+                      outro,
+                    ]
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Documento enviado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, document]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  document:
+                    $ref: '#/components/schemas/DriverDocumentUploadItem'
+        '422':
+          description: Falha de validacao
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /locations/search:
+    get:
+      tags: [Driver V2]
+      summary: Buscar sugestoes de endereco
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sugestoes retornadas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationSearchResponse'
+        '422':
+          description: Termo de busca invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+        '502':
+          description: Falha no provedor de geocoding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureErrorResponse'
+
+  /driver/profile/security:
+    get:
+      tags: [Driver V2]
+      summary: Buscar URLs de segurança e termos
+      responses:
+        '200':
+          description: Dados de segurança retornados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverProfileSecurityResponse'
+
+  /driver/onboarding/documents:
+    post:
+      tags: [Driver V2]
+      summary: Salvar documentos obrigatorios do onboarding do motorista
+      description: Pode ser reutilizado para reenviar CNH frente, CNH verso e selfie a partir da area de perfil/documentos.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [cnhFront, cnhBack, selfie]
+              properties:
+                cnhFront:
+                  type: string
+                  format: binary
+                cnhBack:
+                  type: string
+                  format: binary
+                selfie:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Documentos salvos com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  documents:
+                    type: object
+                    properties:
+                      cnhFront:
+                        $ref: '#/components/schemas/DriverDocument'
+                      cnhBack:
+                        $ref: '#/components/schemas/DriverDocument'
+                      selfie:
+                        $ref: '#/components/schemas/DriverDocument'
+                  onboardingStatus:
+                    $ref: '#/components/schemas/OnboardingStatus'
+        '400':
+          description: Arquivos obrigatorios ausentes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Nao autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/onboarding/vehicle:
+    post:
+      tags: [Driver V2]
+      summary: Salvar veiculo do onboarding do motorista
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverOnboardingVehicleRequest'
+            examples:
+              carro:
+                value:
+                  userId: "string"
+                  vehicleType: "carro"
+                  manufacturer: "Fiat"
+                  modelName: "Argo"
+                  year: "2022"
+                  color: "Prata"
+                  vehiclePlate: "ABC1D23"
+                  usage: "PASSAGEIROS"
+                  renavam: "12345678901"
+      responses:
+        '200':
+          description: Veiculo salvo com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  vehicle:
+                    $ref: '#/components/schemas/DriverVehicle'
+                  onboardingStatus:
+                    $ref: '#/components/schemas/OnboardingStatus'
+        '400':
+          description: Payload invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Nao autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Acesso negado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Veiculo ja cadastrado para outro usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth V2]
+      summary: Recuperar senha
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/forgot-password/verify:
+    post:
+      tags: [Auth V2]
+      summary: Verificar código de recuperação de senha
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/reset-password:
+    post:
+      tags: [Auth V2]
+      summary: Redefinir senha
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /auth/resend-code:
+    post:
+      tags: [Auth V2]
+      summary: Reenviar código
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /passenger/rides/request:
+    post:
+      tags: [Passenger V2]
+      summary: Solicitar corrida inicial
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/profile/register:
+    post:
+      tags: [Driver V2]
+      summary: Registro completo de perfil do motorista
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/profile/{userId}:
+    get:
+      tags: [Driver V2]
+      summary: Consultar perfil do motorista por userId
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/{rideId}/arrive:
+    post:
+      tags: [Driver V2]
+      summary: Sinalizar chegada no local de embarque
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/{rideId}/start:
+    post:
+      tags: [Driver V2]
+      summary: Iniciar corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/rides/{rideId}/complete:
+    post:
+      tags: [Driver V2]
+      summary: Finalizar corrida
+      parameters:
+        - in: path
+          name: rideId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/vehicles:
+    post:
+      tags: [Driver V2]
+      summary: Gerenciar veículos do motorista
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    get:
+      tags: [Driver V2]
+      summary: Gerenciar veículos do motorista
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/vehicles/{id}:
+    get:
+      tags: [Driver V2]
+      summary: Operações em veículo específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    put:
+      tags: [Driver V2]
+      summary: Operações em veículo específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      tags: [Driver V2]
+      summary: Operações em veículo específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/vehicles/{id}/documents:
+    post:
+      tags: [Driver V2]
+      summary: Gerenciar documentos do veículo
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      tags: [Driver V2]
+      summary: Gerenciar documentos do veículo
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/vehicles/{id}/photo:
+    put:
+      tags: [Driver V2]
+      summary: Atualizar foto do veículo
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/driver-documents:
+    post:
+      tags: [Driver V2]
+      summary: Gerenciar documentos do motorista
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    get:
+      tags: [Driver V2]
+      summary: Gerenciar documentos do motorista
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /driver/driver-documents/{id}:
+    get:
+      tags: [Driver V2]
+      summary: Operações em documento do motorista
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    put:
+      tags: [Driver V2]
+      summary: Operações em documento do motorista
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      tags: [Driver V2]
+      summary: Operações em documento do motorista
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/users/{id}:
+    get:
+      tags: [Admin V2]
+      summary: Gerenciar usuário
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    put:
+      tags: [Admin V2]
+      summary: Gerenciar usuário
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/users/{id}/photo:
+    put:
+      tags: [Admin V2]
+      summary: Atualizar foto do usuário
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/users/{id}/block:
+    put:
+      tags: [Admin V2]
+      summary: Bloquear usuário
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/users/{id}/reset-onboarding:
+    put:
+      tags: [Admin V2]
+      summary: Resetar status de onboarding
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/payments/settings:
+    get:
+      tags: [Admin V2]
+      summary: Gerenciar configurações de pagamento
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    put:
+      tags: [Admin V2]
+      summary: Gerenciar configurações de pagamento
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/payments/settings/list:
+    get:
+      tags: [Admin V2]
+      summary: Listar configurações de pagamento
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/payments/settings/audit-logs:
+    get:
+      tags: [Admin V2]
+      summary: Auditoria de configurações de pagamento
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/payments/settings/{id}:
+    delete:
+      tags: [Admin V2]
+      summary: Excluir configuração de pagamento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/products/{id}:
+    get:
+      tags: [Admin V2]
+      summary: Operações em produto específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    put:
+      tags: [Admin V2]
+      summary: Operações em produto específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      tags: [Admin V2]
+      summary: Operações em produto específico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/tarifas:
+    get:
+      tags: [Admin V2]
+      summary: Gerenciar tarifas globais
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    post:
+      tags: [Admin V2]
+      summary: Gerenciar tarifas globais
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/tarifas/{id}:
+    put:
+      tags: [Admin V2]
+      summary: Operações em tarifa específica
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      tags: [Admin V2]
+      summary: Operações em tarifa específica
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/vehicles/{id}:
+    get:
+      tags: [Admin V2]
+      summary: Detalhes de um veículo
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/driver-documents/{id}:
+    get:
+      tags: [Admin V2]
+      summary: Detalhes de documento do motorista
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/rides:
+    get:
+      tags: [Admin V2]
+      summary: Gerenciar todas as corridas
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      tags: [Admin V2]
+      summary: Gerenciar todas as corridas
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/rides/{id}:
+    get:
+      tags: [Admin V2]
+      summary: Detalhes da corrida
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Erro de validação ou regra de negócio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    DriverHighPriorityFilter:
+      in: query
+      name: highPriority
+      required: false
+      schema:
+        type: boolean
+    DriverCategoryFilter:
+      in: query
+      name: category
+      required: false
+      schema:
+        type: string
+        enum: [delivery, passenger]
+    DriverLatFilter:
+      in: query
+      name: lat
+      required: false
+      schema:
+        type: number
+        format: double
+    DriverLngFilter:
+      in: query
+      name: lng
+      required: false
+      schema:
+        type: number
+        format: double
+    DriverRadiusKmFilter:
+      in: query
+      name: radiusKm
+      required: false
+      schema:
+        type: number
+        format: double
+    DriverLimitFilter:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    DriverOffsetFilter:
+      in: query
+      name: offset
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, phone, password, role]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [passenger, driver, admin]
+
+    VerifyCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+
+    SendCodeResponse:
+      type: object
+      required: [success, message, channel, sentTo]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        channel:
+          type: string
+          enum: [EMAIL, PHONE]
+        sentTo:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SmsMonthlyUsage:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [AWS_SNS]
+        month:
+          type: string
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        totalMessages:
+          type: integer
+        totalSent:
+          type: integer
+        totalFailed:
+          type: integer
+        threshold:
+          type: integer
+        alert:
+          type: boolean
+
+    ValidationSuccessResponse:
+      type: object
+      required: [success, message, token, user]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        token:
+          type: string
+          description: JWT atualizado apos validacao para refletir o novo authStatus.
+        user:
+          $ref: '#/components/schemas/AuthenticatedUser'
+        onboardingStatus:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/OnboardingStatus'
+            - type: 'null'
+
+    LoginRequest:
+      type: object
+      required: [password]
+      properties:
+        identifier:
+          type: string
+          description: Campo recomendado para email ou telefone.
+        email:
+          type: string
+          format: email
+          description: Campo alternativo legado.
+        phone:
+          type: string
+          description: Campo alternativo legado.
+        password:
+          type: string
+      anyOf:
+        - required: [identifier]
+        - required: [email]
+        - required: [phone]
+
+    LoginSuccessResponse:
+      type: object
+      required: [success, token, user]
+      properties:
+        success:
+          type: boolean
+          example: true
+        token:
+          type: string
+          description: JWT do usuario autenticado.
+        user:
+          $ref: '#/components/schemas/AuthenticatedUser'
+        onboardingStatus:
+          nullable: true
+          description: Presente para perfil motorista/admin.
+          oneOf:
+            - $ref: '#/components/schemas/OnboardingStatus'
+            - type: 'null'
+
+    OnboardingStatus:
+      type: object
+      required: [isCompleted, isUnderReview, canDrive, steps]
+      properties:
+        isCompleted:
+          type: boolean
+        isUnderReview:
+          type: boolean
+        canDrive:
+          type: boolean
+        steps:
+          type: object
+          properties:
+            profilePhoto:
+              $ref: '#/components/schemas/OnboardingStepWithReview'
+            email:
+              $ref: '#/components/schemas/OnboardingStep'
+            phone:
+              $ref: '#/components/schemas/OnboardingStep'
+            documents:
+              $ref: '#/components/schemas/OnboardingStepWithReview'
+            criminalRecord:
+              $ref: '#/components/schemas/OnboardingStepWithReview'
+            vehicle:
+              $ref: '#/components/schemas/OnboardingStepWithReview'
+            vehiclePhotos:
+              $ref: '#/components/schemas/OnboardingStepWithReview'
+
+    OnboardingStep:
+      type: object
+      properties:
+        completed:
+          type: boolean
+
+    OnboardingStepWithReview:
+      type: object
+      properties:
+        completed:
+          type: boolean
+        underReview:
+          type: boolean
+
+    DriverDocument:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+        type:
+          type: string
+          enum: [CNH, CRLV, RG, CPF, SELFIE, OUTRO, RESIDENCE_PROOF, CRIMINAL_RECORD]
+        side:
+          type: string
+          enum: [FRONT, BACK]
+          nullable: true
+        filename:
+          type: string
+          nullable: true
+        fileUrl:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        rejectionReason:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    DriverOnboardingVehicleRequest:
+      type: object
+      required:
+        [
+          userId,
+          vehicleType,
+          manufacturer,
+          modelName,
+          year,
+          color,
+          vehiclePlate,
+          usage,
+        ]
+      properties:
+        userId:
+          type: string
+          description: Ignorado pela API quando diferente do usuario autenticado.
+        vehicleType:
+          type: string
+          enum: [carro, moto]
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        year:
+          type: string
+        color:
+          type: string
+        vehiclePlate:
+          type: string
+        usage:
+          type: string
+          enum: [ENTREGAS, PASSAGEIROS, AMBOS]
+        renavam:
+          type: string
+          nullable: true
+
+    DriverVehicle:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        vehicleType:
+          type: string
+          enum: [carro, moto]
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        year:
+          type: string
+          nullable: true
+        color:
+          type: string
+        vehiclePlate:
+          type: string
+        usage:
+          type: string
+          enum: [ENTREGAS, PASSAGEIROS, AMBOS]
+          nullable: true
+        renavam:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+
+    DriverAvailabilityRequest:
+      type: object
+      required: [availability]
+      properties:
+        availability:
+          type: string
+          enum: [ONLINE, OFFLINE]
+
+    DriverAvailabilityResponse:
+      type: object
+      required: [success, availability, updatedAt]
+      properties:
+        success:
+          type: boolean
+        availability:
+          type: string
+          enum: [ONLINE, OFFLINE]
+        updatedAt:
+          type: string
+          format: date-time
+
+    DriverOperationalLocationRequest:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        heading:
+          type: number
+          format: float
+          nullable: true
+        speed:
+          type: number
+          format: float
+          nullable: true
+        accuracy:
+          type: number
+          format: float
+          nullable: true
+
+    DriverOperationalLocationResponse:
+      type: object
+      required: [success, location]
+      properties:
+        success:
+          type: boolean
+        location:
+          type: object
+          required: [lat, lng, updatedAt]
+          properties:
+            lat:
+              type: number
+              format: double
+            lng:
+              type: number
+              format: double
+            heading:
+              type: number
+              format: float
+              nullable: true
+            speed:
+              type: number
+              format: float
+              nullable: true
+            accuracy:
+              type: number
+              format: float
+              nullable: true
+            updatedAt:
+              type: string
+              format: date-time
+
+    DriverDeviceTokenRequest:
+      type: object
+      required: [provider, token, platform]
+      properties:
+        provider:
+          type: string
+          enum: [fcm]
+        token:
+          type: string
+        platform:
+          type: string
+          enum: [android, ios]
+
+    DriverDashboardSummary:
+      type: object
+      required: [todayRides, todayEarnings, progressPercent]
+      properties:
+        todayRides:
+          type: integer
+        todayEarnings:
+          type: number
+          format: float
+        progressPercent:
+          type: integer
+
+    DriverDashboardRidePoint:
+      type: object
+      properties:
+        address:
+          type: string
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lng:
+          type: number
+          format: double
+          nullable: true
+
+    DriverPendingRideItem:
+      type: object
+      properties:
+        id:
+          type: string
+        typeLabel:
+          type: string
+        category:
+          type: string
+          enum: [delivery, passenger]
+        highPriority:
+          type: boolean
+        routeLabel:
+          type: string
+        distanceKm:
+          type: number
+          format: float
+        etaMin:
+          type: number
+          format: float
+        price:
+          type: number
+          format: float
+        paymentMethod:
+          type: string
+        pickup:
+          $ref: '#/components/schemas/DriverDashboardRidePoint'
+        dropoff:
+          $ref: '#/components/schemas/DriverDashboardRidePoint'
+
+    DriverPendingRidesResponse:
+      type: object
+      required: [success, items, total, limit, offset]
+      properties:
+        success:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverPendingRideItem'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    DriverCurrentRide:
+      nullable: true
+      oneOf:
+        - type: 'null'
+        - type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+              enum: [accepted, ongoing]
+            acceptedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    DriverCurrentRideResponse:
+      type: object
+      required: [success, ride]
+      properties:
+        success:
+          type: boolean
+        ride:
+          $ref: '#/components/schemas/DriverCurrentRide'
+
+    DriverDashboardResponse:
+      type: object
+      required: [success, availability, summary, pendingRides, currentRide]
+      properties:
+        success:
+          type: boolean
+        availability:
+          type: string
+          enum: [ONLINE, OFFLINE]
+        summary:
+          $ref: '#/components/schemas/DriverDashboardSummary'
+        pendingRides:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverPendingRideItem'
+        currentRide:
+          $ref: '#/components/schemas/DriverCurrentRide'
+
+    DriverAcceptRide:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [accepted]
+        driverId:
+          type: string
+        acceptedAt:
+          type: string
+          format: date-time
+
+    DriverAcceptRideResponse:
+      type: object
+      required: [success, ride]
+      properties:
+        success:
+          type: boolean
+        ride:
+          $ref: '#/components/schemas/DriverAcceptRide'
+
+    DriverRealtimeTokenPayload:
+      type: object
+      required: [dbUrl, customToken, expiresAt, rideId, role]
+      properties:
+        dbUrl:
+          type: string
+          description: URL do Firebase Realtime Database.
+        customToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        rideId:
+          type: string
+        role:
+          type: string
+          enum: [driver]
+
+    DriverRealtimeTokenResponse:
+      type: object
+      required: [success, firebase]
+      properties:
+        success:
+          type: boolean
+        firebase:
+          $ref: '#/components/schemas/DriverRealtimeTokenPayload'
+
+    DriverLocationSnapshotRequest:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        speed:
+          type: number
+          format: float
+          nullable: true
+        heading:
+          type: number
+          format: float
+          nullable: true
+        accuracy:
+          type: number
+          format: float
+          nullable: true
+        capturedAt:
+          type: string
+          format: date-time
+          nullable: true
+        source:
+          type: string
+          enum: [mobile, backend]
+          nullable: true
+
+    DriverLocationSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+        rideId:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        speed:
+          type: number
+          format: float
+          nullable: true
+        heading:
+          type: number
+          format: float
+          nullable: true
+        accuracy:
+          type: number
+          format: float
+          nullable: true
+        source:
+          type: string
+          enum: [mobile, backend]
+        capturedAt:
+          type: string
+          format: date-time
+
+    DriverLocationSnapshotResponse:
+      type: object
+      required: [success, snapshot, rideStatus]
+      properties:
+        success:
+          type: boolean
+        snapshot:
+          $ref: '#/components/schemas/DriverLocationSnapshot'
+        rideStatus:
+          type: string
+          enum: [pending, accepted, ongoing, completed, canceled]
+
+    DriverRideEta:
+      nullable: true
+      oneOf:
+        - type: 'null'
+        - type: object
+          properties:
+            distanceM:
+              type: integer
+            etaSec:
+              type: integer
+            basedOnSnapshotAt:
+              type: string
+              format: date-time
+
+    DriverRideEtaResponse:
+      type: object
+      required: [success, rideId, status, eta]
+      properties:
+        success:
+          type: boolean
+        rideId:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, ongoing, completed, canceled]
+        eta:
+          $ref: '#/components/schemas/DriverRideEta'
+
+    DriverRideHistorySummaryResponse:
+      type: object
+      required: [totalBilled, totalRides, billedGrowthPercent, ridesGrowthPercent]
+      properties:
+        totalBilled:
+          type: number
+          format: float
+        totalRides:
+          type: integer
+        billedGrowthPercent:
+          type: number
+          format: float
+        ridesGrowthPercent:
+          type: number
+          format: float
+
+    DriverRideHistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [FINISHED]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        distanceKm:
+          type: number
+          format: float
+        originAddress:
+          type: string
+          nullable: true
+        destinationAddress:
+          type: string
+          nullable: true
+        netAmount:
+          type: number
+          format: float
+        netAmountFormatted:
+          type: string
+
+    DriverRideHistoryListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverRideHistoryItem'
+        meta:
+          type: object
+          required: [page, limit, total]
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+
+    DriverRideHistoryDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [FINISHED]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMinutes:
+          type: integer
+        distanceKm:
+          type: number
+          format: float
+        originAddress:
+          type: string
+          nullable: true
+        destinationAddress:
+          type: string
+          nullable: true
+        originLat:
+          type: number
+          format: double
+          nullable: true
+        originLng:
+          type: number
+          format: double
+          nullable: true
+        destinationLat:
+          type: number
+          format: double
+          nullable: true
+        destinationLng:
+          type: number
+          format: double
+          nullable: true
+        grossAmount:
+          type: number
+          format: float
+        grossAmountFormatted:
+          type: string
+        appFee:
+          type: number
+          format: float
+        netAmount:
+          type: number
+          format: float
+        netAmountFormatted:
+          type: string
+        paymentMethodLabel:
+          type: string
+        passengerName:
+          type: string
+          nullable: true
+        passengerPhotoUrl:
+          type: string
+          nullable: true
+        polyline:
+          type: string
+          nullable: true
+
+    DriverRideSupportOption:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [FORGOTTEN_OBJECT, PAYMENT_ISSUE, SECURITY_INCIDENT, PASSENGER_ABSENT, OTHER]
+        label:
+          type: string
+        enabled:
+          type: boolean
+
+    DriverRideSupportOptionsResponse:
+      type: object
+      required: [options]
+      properties:
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverRideSupportOption'
+
+    DriverRideSupportTicketRequest:
+      type: object
+      required: [issueCode, subject]
+      properties:
+        issueCode:
+          type: string
+          enum: [OTHER, SECURITY_INCIDENT]
+        subject:
+          type: string
+        description:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            type: string
+
+    DriverRideSupportTicketResponse:
+      type: object
+      required: [ticketId, status, createdAt, message]
+      properties:
+        ticketId:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, IN_PROGRESS, UNDER_REVIEW, RESOLVED]
+        createdAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    DriverRideSupportSimpleTicketResponse:
+      type: object
+      required: [ticketId, status, createdAt]
+      properties:
+        ticketId:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, IN_PROGRESS, UNDER_REVIEW, RESOLVED]
+        createdAt:
+          type: string
+          format: date-time
+
+    DriverRidePaymentIssueRequest:
+      type: object
+      required: [expectedAmount, receivedAmount]
+      properties:
+        expectedAmount:
+          type: number
+          format: float
+        receivedAmount:
+          type: number
+          format: float
+        description:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            type: string
+
+    DriverRideForgottenObjectRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: string
+
+    DriverRidePassengerAbsentRequest:
+      type: object
+      required:
+        [waitedMoreThan5Minutes, calledPassenger, messagedPassenger, atBoardingPoint, driverLat, driverLng]
+      properties:
+        waitedMoreThan5Minutes:
+          type: boolean
+        calledPassenger:
+          type: boolean
+        messagedPassenger:
+          type: boolean
+        atBoardingPoint:
+          type: boolean
+        driverLat:
+          type: number
+          format: double
+        driverLng:
+          type: number
+          format: double
+        gpsEvidenceId:
+          type: string
+          nullable: true
+
+    DriverRidePassengerAbsentResponse:
+      type: object
+      required: [requestId, status, createdAt, penaltyWaiverRequested]
+      properties:
+        requestId:
+          type: string
+        status:
+          type: string
+          enum: [UNDER_REVIEW]
+        createdAt:
+          type: string
+          format: date-time
+        penaltyWaiverRequested:
+          type: boolean
+
+    DriverRideSupportContactResponse:
+      type: object
+      required: [channel, availability]
+      properties:
+        channel:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        whatsApp:
+          type: string
+          nullable: true
+        chatUrl:
+          type: string
+          nullable: true
+        availability:
+          type: string
+
+    UploadAssetResponse:
+      type: object
+      required: [fileId, url, mimeType, size]
+      properties:
+        fileId:
+          type: string
+        url:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+
+    FeatureErrorResponse:
+      type: object
+      required: [statusCode, error, message, details]
+      properties:
+        statusCode:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    SuccessMessageResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    DriverProfileResponse:
+      type: object
+      required:
+        [id, name, email, phone, partnerSince, totalRides]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        cpfMasked:
+          type: string
+          nullable: true
+        profilePhotoUrl:
+          type: string
+          nullable: true
+        partnerSince:
+          type: string
+          format: date
+        rating:
+          type: number
+          format: float
+          nullable: true
+        totalRides:
+          type: integer
+
+    DriverProfileUpdateRequest:
+      type: object
+      required: [name, email, phone, cpf]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        cpf:
+          type: string
+
+    DriverProfileVehicleResponse:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        year:
+          type: string
+          nullable: true
+        vehiclePlate:
+          type: string
+        color:
+          type: string
+        vehicleType:
+          type: string
+          enum: [car, motorcycle, pickup]
+
+    DriverVehicleListItem:
+      type: object
+      required:
+        [id, manufacturer, modelName, vehiclePlate, color, vehicleType, status, documentationStatus]
+      properties:
+        id:
+          type: string
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        year:
+          type: string
+          nullable: true
+        vehiclePlate:
+          type: string
+        color:
+          type: string
+        vehicleType:
+          type: string
+          enum: [car, motorcycle, pickup]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, BLOCKED]
+        documentationStatus:
+          type: string
+          enum: [APPROVED, PENDING, REJECTED, UNDER_REVIEW]
+        photoUrl:
+          type: string
+          nullable: true
+
+    DriverVehiclesListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverVehicleListItem'
+
+    DriverVehicleCreateRequest:
+      type: object
+      required: [manufacturer, modelName, year, vehiclePlate, color, vehicleType]
+      properties:
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        year:
+          type: string
+        vehiclePlate:
+          type: string
+        renavam:
+          type: string
+          nullable: true
+          description: Renavam opcional. Quando enviado, deve ser único.
+        color:
+          type: string
+        vehicleType:
+          type: string
+          enum: [car, motorcycle, pickup]
+
+    DriverVehicleCreateResponse:
+      type: object
+      required: [id, message]
+      properties:
+        id:
+          type: string
+        message:
+          type: string
+
+    DriverVehicleDocumentItem:
+      type: object
+      required: [type, status]
+      properties:
+        type:
+          type: string
+          enum: [CRLV, VEHICLE_FRONT, VEHICLE_BACK, VEHICLE_INTERIOR]
+        status:
+          type: string
+          enum: [APPROVED, PENDING, REJECTED]
+        url:
+          type: string
+          nullable: true
+        fileName:
+          type: string
+          nullable: true
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+
+    DriverVehicleDocumentsResponse:
+      type: object
+      required: [vehicleId, documents]
+      properties:
+        vehicleId:
+          type: string
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverVehicleDocumentItem'
+
+    DriverVehicleDocumentUploadResponse:
+      type: object
+      required: [success, message, document]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        document:
+          type: object
+          required: [type, status, url, uploadedAt]
+          properties:
+            type:
+              type: string
+              enum: [CRLV, VEHICLE_FRONT, VEHICLE_BACK, VEHICLE_INTERIOR]
+            status:
+              type: string
+              enum: [PENDING]
+            url:
+              type: string
+            fileName:
+              type: string
+              nullable: true
+            uploadedAt:
+              type: string
+              format: date-time
+
+    DriverVehiclePhotoUploadResponse:
+      type: object
+      required: [success, photoUrl]
+      properties:
+        success:
+          type: boolean
+        photoUrl:
+          type: string
+
+    DriverProfileDocumentItem:
+      type: object
+      required: [status, url, fileName, uploadedAt, reviewedAt, reason]
+      properties:
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        url:
+          type: string
+          nullable: true
+        fileName:
+          type: string
+          nullable: true
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+
+    DriverProfileDocumentsResponse:
+      type: object
+      required:
+        [cnhFront, cnhBack, selfie, profilePhoto, residenceProof, criminalRecord]
+      properties:
+        cnhFront:
+          $ref: '#/components/schemas/DriverProfileDocumentItem'
+        cnhBack:
+          $ref: '#/components/schemas/DriverProfileDocumentItem'
+        selfie:
+          $ref: '#/components/schemas/DriverProfileDocumentItem'
+        profilePhoto:
+          $ref: '#/components/schemas/DriverProfileDocumentItem'
+        residenceProof:
+          $ref: '#/components/schemas/DriverProfileDocumentItem'
+        criminalRecord:
+          $ref: '#/components/schemas/DriverProfileDocumentItem'
+
+    DriverAddress:
+      type: object
+      required:
+        [
+          street,
+          number,
+          district,
+          city,
+          state,
+          zipCode,
+          complement,
+          latitude,
+          longitude,
+          formattedAddress,
+        ]
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        zipCode:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        formattedAddress:
+          type: string
+          nullable: true
+
+    DriverAddressUpdateRequest:
+      type: object
+      required:
+        [
+          street,
+          number,
+          district,
+          city,
+          state,
+          zipCode,
+          latitude,
+          longitude,
+          formattedAddress,
+        ]
+      properties:
+        street:
+          type: string
+        number:
+          type: string
+        district:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        complement:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        formattedAddress:
+          type: string
+
+    DriverAddressHistoryItem:
+      type: object
+      required: [id, label, formattedAddress]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+          nullable: true
+        formattedAddress:
+          type: string
+
+    DriverAddressHistoryResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverAddressHistoryItem'
+
+    DriverAddressHistoryCreateRequest:
+      type: object
+      required: [formattedAddress, latitude, longitude]
+      properties:
+        label:
+          type: string
+          nullable: true
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        zipCode:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        formattedAddress:
+          type: string
+
+    LocationSearchResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverAddress'
+
+    DriverDocumentUploadItem:
+      type: object
+      required: [type, status, fileUrl]
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+        type:
+          type: string
+          enum:
+            [
+              CNH,
+              CRLV,
+              RG,
+              CPF,
+              SELFIE,
+              OUTRO,
+              RESIDENCE_PROOF,
+              CRIMINAL_RECORD,
+            ]
+        side:
+          type: string
+          nullable: true
+          enum: [FRONT, BACK]
+        fileUrl:
+          type: string
+        filename:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        rejectionReason:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DriverProfileSecurityResponse:
+      type: object
+      required: [privacyPolicyUrl, termsUrl, appVersion]
+      properties:
+        privacyPolicyUrl:
+          type: string
+        termsUrl:
+          type: string
+        appVersion:
+          type: string
+
+    DriverWalletBalances:
+      type: object
+      required: [available, pending]
+      properties:
+        available:
+          type: number
+          format: float
+        pending:
+          type: number
+          format: float
+
+    DriverWalletSummaryResponse:
+      type: object
+      required:
+        [
+          success,
+          period,
+          balances,
+          weekEarnings,
+          totalAccumulated,
+          periodEarnings,
+          updatedAt,
+        ]
+      properties:
+        success:
+          type: boolean
+        period:
+          type: string
+          enum: [today, week, month]
+        balances:
+          $ref: '#/components/schemas/DriverWalletBalances'
+        weekEarnings:
+          type: number
+          format: float
+        totalAccumulated:
+          type: number
+          format: float
+        periodEarnings:
+          type: number
+          format: float
+        updatedAt:
+          type: string
+          format: date-time
+
+    DriverWalletActivity:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [RIDE_CREDIT, BONUS, PIX_TRANSFER_DEBIT, ADJUSTMENT]
+        amount:
+          type: number
+          format: float
+        balanceAfter:
+          type: number
+          format: float
+        referenceType:
+          type: string
+          nullable: true
+        referenceId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    DriverWalletActivitiesResponse:
+      type: object
+      required: [success, items, total, limit, offset]
+      properties:
+        success:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverWalletActivity'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    DriverPixTransferRequest:
+      type: object
+      required: [cpf, amount]
+      properties:
+        cpf:
+          type: string
+          description: CPF de destino para PIX.
+        amount:
+          type: number
+          format: float
+
+    DriverPixTransferCreateResponse:
+      type: object
+      required: [success, transferId, status, createdAt]
+      properties:
+        success:
+          type: boolean
+        transferId:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        receiptUrl:
+          type: string
+          nullable: true
+
+    DriverTransferDetails:
+      type: object
+      properties:
+        id:
+          type: string
+        method:
+          type: string
+          enum: [PIX_CPF]
+        cpfMasked:
+          type: string
+        amount:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        providerTxId:
+          type: string
+          nullable: true
+        receiptUrl:
+          type: string
+          nullable: true
+        failureReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        failedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    DriverTransferDetailsResponse:
+      type: object
+      required: [success, transfer]
+      properties:
+        success:
+          type: boolean
+        transfer:
+          $ref: '#/components/schemas/DriverTransferDetails'
+
+    DriverTransferReceiptResponse:
+      type: object
+      required: [success, transferId, status, receiptUrl, issuedAt]
+      properties:
+        success:
+          type: boolean
+        transferId:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        receiptUrl:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+
+    AdminDashboardStats:
+      type: object
+      properties:
+        totalRevenue:
+          type: number
+          format: float
+        activeDrivers:
+          type: integer
+        totalPassengers:
+          type: integer
+        pendingApprovals:
+          type: integer
+
+    AdminPendingDriverItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/AdminBasicUser'
+
+    AdminPendingVehicleItem:
+      type: object
+      properties:
+        id:
+          type: string
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        vehiclePlate:
+          type: string
+        status:
+          type: string
+        documentationStatus:
+          type: string
+
+    AdminDashboardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        stats:
+          $ref: '#/components/schemas/AdminDashboardStats'
+        revenueSeries:
+          type: array
+          items:
+            type: number
+            format: float
+        pendingDrivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminPendingDriverItem'
+        pendingVehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminPendingVehicleItem'
+        trends:
+          type: object
+          properties:
+            revenueGrowthPercent:
+              type: number
+              format: float
+            paymentsGrowthPercent:
+              type: number
+              format: float
+
+    AdminBasicUser:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+
+    AdminUserItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+        authStatus:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        onboardingStatus:
+          type: string
+          nullable: true
+          enum: [COMPLETED, UNDER_REVIEW, PENDING]
+
+    AdminUsersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminUserItem'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    AdminPaymentItem:
+      type: object
+      properties:
+        id:
+          type: string
+        rideId:
+          type: string
+          nullable: true
+        driverId:
+          type: string
+          nullable: true
+        passengerId:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: float
+        paymentMethod:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AdminPaymentsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            payments:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminPaymentItem'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    AdminSearchRideItem:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        passengerName:
+          type: string
+          nullable: true
+        driverName:
+          type: string
+          nullable: true
+        originAddress:
+          type: string
+          nullable: true
+        destinationAddress:
+          type: string
+          nullable: true
+
+    AdminSearchVehicleItem:
+      type: object
+      properties:
+        id:
+          type: string
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        vehiclePlate:
+          type: string
+        status:
+          type: string
+
+    AdminSearchDocumentItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        user:
+          $ref: '#/components/schemas/AdminBasicUser'
+
+    AdminSearchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminBasicUser'
+        rides:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminSearchRideItem'
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminSearchVehicleItem'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminSearchDocumentItem'
+
+    AdminDriverDocumentItem:
+      type: object
+      properties:
+        id:
+          type: string
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AdminBasicUser'
+            - type: string
+            - type: 'null'
+        type:
+          type: string
+        side:
+          type: string
+          nullable: true
+        status:
+          type: string
+        fileUrl:
+          type: string
+        filename:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminDriverDocumentsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminDriverDocumentItem'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    AdminVehicleItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        manufacturer:
+          type: string
+        modelName:
+          type: string
+        year:
+          type: string
+          nullable: true
+        color:
+          type: string
+        vehiclePlate:
+          type: string
+        vehicleType:
+          type: string
+        status:
+          type: string
+        documentationStatus:
+          type: string
+        owner:
+          $ref: '#/components/schemas/AdminBasicUser'
+
+    AdminVehiclesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            vehicles:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminVehicleItem'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    AdminDocumentActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        document:
+          $ref: '#/components/schemas/DriverDocumentUploadItem'
+
+    AdminVehicleActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        vehicle:
+          type: object
+
+    AdminBatchIdsRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+
+    AdminBatchActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+
+    AdminAuditLogItem:
+      type: object
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        adminUser:
+          $ref: '#/components/schemas/AdminBasicUser'
+
+    AdminAuditLogsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            logs:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminAuditLogItem'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    PassengerLocation:
+      type: object
+      properties:
+        address:
+          type: string
+          nullable: true
+        coordinates:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+
+    PassengerProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        description:
+          type: string
+          nullable: true
+
+    PassengerRideDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+          nullable: true
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+        picked_up_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        driver:
+          type: object
+          nullable: true
+          additionalProperties: true
+        vehicle:
+          type: object
+          nullable: true
+          additionalProperties: true
+        pickup_location:
+          $ref: '#/components/schemas/PassengerLocation'
+        destination_location:
+          $ref: '#/components/schemas/PassengerLocation'
+        product:
+          $ref: '#/components/schemas/PassengerProduct'
+        payment_method:
+          type: string
+          nullable: true
+        fare:
+          type: object
+          nullable: true
+          additionalProperties: true
+        route:
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    PassengerCreateRideRequest:
+      type: object
+      required: [pickup_location, destination_location]
+      properties:
+        pickup_location:
+          $ref: '#/components/schemas/PassengerLocation'
+        destination_location:
+          $ref: '#/components/schemas/PassengerLocation'
+        product:
+          $ref: '#/components/schemas/PassengerProduct'
+        payment_method:
+          type: string
+
+    PassengerCreateRideResponse:
+      type: object
+      properties:
+        ride:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+            requested_at:
+              type: string
+              format: date-time
+            pickup_location:
+              $ref: '#/components/schemas/PassengerLocation'
+            destination_location:
+              $ref: '#/components/schemas/PassengerLocation'
+            route:
+              type: object
+              additionalProperties: true
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassengerProduct'
+        dispatch:
+          $ref: '#/components/schemas/PassengerRideDispatchResult'
+
+    PassengerRideCheckoutRequest:
+      type: object
+      properties:
+        product:
+          $ref: '#/components/schemas/PassengerProduct'
+        payment_method:
+          type: string
+
+    PassengerRideCheckoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        ride:
+          $ref: '#/components/schemas/PassengerRideDetail'
+        dispatch:
+          $ref: '#/components/schemas/PassengerRideDispatchResult'
+
+    PassengerCancelRideRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    PassengerCancelRideResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        ride:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+
+    PassengerRideDispatchCandidate:
+      type: object
+      properties:
+        driverUserId:
+          type: string
+        distanceKm:
+          type: number
+          format: float
+          nullable: true
+        notified:
+          type: boolean
+
+    PassengerRideDispatchResult:
+      nullable: true
+      oneOf:
+        - type: 'null'
+        - type: object
+          properties:
+            success:
+              type: boolean
+            code:
+              type: string
+              nullable: true
+            rideId:
+              type: string
+            dispatchRound:
+              type: integer
+            radiusKm:
+              type: number
+              format: float
+            dispatchTimeoutMs:
+              type: integer
+            startedAt:
+              type: string
+              format: date-time
+            expiresAt:
+              type: string
+              format: date-time
+            candidates:
+              type: array
+              items:
+                $ref: '#/components/schemas/PassengerRideDispatchCandidate'
+            notifiedDriverUserIds:
+              type: array
+              items:
+                type: string
+
+    PassengerRideStatusResponse:
+      type: object
+      properties:
+        rideId:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PassengerRealtimeTokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        firebase:
+          type: object
+          properties:
+            dbUrl:
+              type: string
+              nullable: true
+            customToken:
+              type: string
+            expiresAt:
+              type: string
+              format: date-time
+            rideId:
+              type: string
+            role:
+              type: string
+
+    PassengerRideEtaResponse:
+      type: object
+      properties:
+        rideId:
+          type: string
+        status:
+          type: string
+        driverLocation:
+          type: object
+          nullable: true
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+            capturedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    PassengerCreatePaymentRequest:
+      type: object
+      required: [rideId, amount, paymentMethod]
+      properties:
+        rideId:
+          type: string
+        driverId:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+
+    PassengerPaymentOptionItem:
+      type: object
+      properties:
+        type:
+          type: string
+        enabled:
+          type: boolean
+        label:
+          type: string
+        reason:
+          type: string
+          nullable: true
+
+    PassengerPaymentOptionsResponse:
+      type: object
+      properties:
+        enabledMethods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassengerPaymentOptionItem'
+        defaultMethod:
+          type: string
+          nullable: true
+        rideId:
+          type: string
+          nullable: true
+
+    PassengerPaymentMethodItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        provider:
+          type: string
+          nullable: true
+        brand:
+          type: string
+          nullable: true
+        last4:
+          type: string
+          nullable: true
+        holderName:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        isDefault:
+          type: boolean
+        status:
+          type: string
+          nullable: true
+
+    PassengerTokenizeCardRequest:
+      type: object
+      required: [holderName, number, expiryMonth, expiryYear, ccv]
+      properties:
+        holderName:
+          type: string
+        number:
+          type: string
+        expiryMonth:
+          type: string
+        expiryYear:
+          type: string
+        ccv:
+          type: string
+        label:
+          type: string
+          nullable: true
+        setAsDefault:
+          type: boolean
+
+    PassengerCreatePixPaymentRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+        description:
+          type: string
+
+    PassengerCreateCardPaymentRequest:
+      type: object
+      required: [holderName, number, expiryMonth, expiryYear, ccv]
+      properties:
+        amount:
+          type: number
+        description:
+          type: string
+        holderName:
+          type: string
+        number:
+          type: string
+        expiryMonth:
+          type: string
+        expiryYear:
+          type: string
+        ccv:
+          type: string
+        saveCard:
+          type: boolean
+        setAsDefault:
+          type: boolean
+        label:
+          type: string
+          nullable: true
+
+    PassengerCreateSavedCardPaymentRequest:
+      type: object
+      properties:
+        paymentMethodId:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        description:
+          type: string
+
+    PassengerCreatePixPaymentResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+        rideId:
+          type: string
+        provider:
+          type: string
+        billingType:
+          type: string
+        status:
+          type: string
+        grossAmount:
+          type: number
+        invoiceUrl:
+          type: string
+          nullable: true
+        pix:
+          type: object
+          properties:
+            payload:
+              type: string
+              nullable: true
+            encodedImage:
+              type: string
+              nullable: true
+            expirationDate:
+              type: string
+              format: date-time
+              nullable: true
+
+    PassengerCreateCardPaymentResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+        rideId:
+          type: string
+        provider:
+          type: string
+        billingType:
+          type: string
+        status:
+          type: string
+        grossAmount:
+          type: number
+        invoiceUrl:
+          type: string
+          nullable: true
+        receiptUrl:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        paymentMethodId:
+          type: string
+          nullable: true
+
+    PassengerRidePaymentStatusResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+        rideId:
+          type: string
+        provider:
+          type: string
+        billingType:
+          type: string
+        status:
+          type: string
+        grossAmount:
+          type: number
+        invoiceUrl:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        pix:
+          type: object
+          nullable: true
+          properties:
+            payload:
+              type: string
+              nullable: true
+            encodedImage:
+              type: string
+              nullable: true
+            expirationDate:
+              type: string
+              format: date-time
+              nullable: true
+
+    PassengerRidePaymentReceiptResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+        rideId:
+          type: string
+        provider:
+          type: string
+        providerPaymentId:
+          type: string
+          nullable: true
+        billingType:
+          type: string
+        status:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        grossAmount:
+          type: number
+        platformCommissionAmount:
+          type: number
+        providerFeeAmount:
+          type: number
+        driverNetAmount:
+          type: number
+        platformNetAmount:
+          type: number
+        originAddress:
+          type: string
+          nullable: true
+        destinationAddress:
+          type: string
+          nullable: true
+        invoiceUrl:
+          type: string
+          nullable: true
+        receiptUrl:
+          type: string
+          nullable: true
+
+    AsaasWebhookResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        normalizedStatus:
+          type: string
+        ridePaymentId:
+          type: string
+          nullable: true
+        eventId:
+          type: string
+
+    PassengerPaymentMethodsResponse:
+      type: object
+      properties:
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassengerPaymentMethodItem'
+
+    PassengerPaymentMethodRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [card, pix]
+        brand:
+          type: string
+        last4:
+          type: string
+        holderName:
+          type: string
+        label:
+          type: string
+        isDefault:
+          type: boolean
+
+    PassengerProfilePhotoResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        photoUrl:
+          type: string
+
+    PassengerAddress:
+      type: object
+      properties:
+        street:
+          type: string
+          nullable: true
+        number:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        zipCode:
+          type: string
+          nullable: true
+        complement:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        formattedAddress:
+          type: string
+          nullable: true
+
+    PassengerAddressHistoryResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+                nullable: true
+              formattedAddress:
+                type: string
+
+    PassengerOnboardingStatus:
+      type: object
+      properties:
+        isCompleted:
+          type: boolean
+        isUnderReview:
+          type: boolean
+        canUseApp:
+          type: boolean
+        steps:
+          type: object
+          additionalProperties: true
+
+    PassengerNotificationItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PassengerNotificationsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassengerNotificationItem'
+        unreadCount:
+          type: integer
+
+    PassengerBasicSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    AuthenticatedUser:
+      type: object
+      required:
+        [id, name, email, phone, role, authStatus, emailVerified, phoneVerified]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        cpfMasked:
+          type: string
+          nullable: true
+          description: CPF mascarado para exibição segura na UI.
+        role:
+          type: string
+          enum: [passenger, driver, admin]
+        authStatus:
+          type: string
+          enum: [PENDING_EMAIL, PENDING_PHONE, ACTIVE, BLOCKED]
+          description: "PENDING_PHONE permanece apenas por compatibilidade legada. O fluxo atual promove para ACTIVE assim que o email e validado."
+        emailVerified:
+          type: boolean
+        phoneVerified:
+          type: boolean
+
+    ApiErrorResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+        traceId:
+          type: string
+security:
+  - bearerAuth: []

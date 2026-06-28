@@ -1,0 +1,63 @@
+substitutions:
+  _REGION: southamerica-east1
+  _SERVICE: tmjapp-api
+  _REPOSITORY: tmjapp
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+      - .
+
+  - id: push-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}
+
+  - id: deploy-cloud-run
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --min-instances
+      - "0"
+      - --max-instances
+      - "2"
+      - --cpu
+      - "1"
+      - --memory
+      - 512Mi
+      - --concurrency
+      - "80"
+      - --timeout
+      - 60s
+      - --port
+      - "8080"
+      - --set-env-vars
+      - NODE_ENV=production
+      - --update-secrets
+      - MONGO_URI=tmjapp-mongo-uri:latest,JWT_SECRET=tmjapp-jwt-secret:latest,MAIL_FROM=tmjapp-mail-from:latest,MAIL_HOST=tmjapp-mail-host:latest,MAIL_PORT=tmjapp-mail-port:latest,MAIL_USER=tmjapp-mail-user:latest,MAIL_PASS=tmjapp-mail-pass:latest,AWS_ACCESS_KEY_ID=tmjapp-aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=tmjapp-aws-secret-access-key:latest,AWS_REGION=tmjapp-aws-region:latest,AWS_S3_BUCKET_NAME=tmjapp-aws-s3-bucket-name:latest,FIREBASE_SERVICE_ACCOUNT_JSON=tmjapp-firebase-service-account-json:latest,FIREBASE_DATABASE_URL=tmjapp-firebase-database-url:latest,ASAAS_API_KEY=tmjapp-asaas-api-key:latest,ASAAS_BASE_URL=tmjapp-asaas-base-url:latest,SWAGGER_ACCESS_CODE=tmjapp-swagger-access-code:latest,API_PUBLIC_BASE_URL=tmjapp-api-public-base-url:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest

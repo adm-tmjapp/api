@@ -1,0 +1,82 @@
+{
+  "info": {
+    "_postman_id": "tmjapp-api-collection",
+    "name": "TMJApp API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleção de rotas principais da TMJApp API"
+  },
+  "item": [
+    {
+      "name": "Registrar Usuário",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Nome Teste\",\n  \"email\": \"teste@exemplo.com\",\n  \"password\": \"123456\",\n  \"phone\": \"11999999999\",\n  \"role\": \"passenger\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/register", "host": [ "{{baseUrl}}" ], "path": [ "register" ] }
+      }
+    },
+    {
+      "name": "Login Usuário",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"teste@exemplo.com\",\n  \"password\": \"123456\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/login", "host": [ "{{baseUrl}}" ], "path": [ "login" ] }
+      }
+    },
+    {
+      "name": "Listar Todos Usuários (admin)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/all", "host": [ "{{baseUrl}}" ], "path": [ "all" ] }
+      }
+    },
+    {
+      "name": "Atualizar Perfil",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Novo Nome\",\n  \"email\": \"novoemail@exemplo.com\",\n  \"phone\": \"11988888888\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/update-profile", "host": [ "{{baseUrl}}" ], "path": [ "update-profile" ] }
+      }
+    },
+    {
+      "name": "Alterar Senha",
+      "request": {
+        "method": "PUT",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"123456\",\n  \"newPassword\": \"654321\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/change-password", "host": [ "{{baseUrl}}" ], "path": [ "change-password" ] }
+      }
+    },
+    {
+      "name": "Deletar Usuário (próprio ou admin)",
+      "request": {
+        "method": "DELETE",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"id_do_usuario_para_deletar\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/delete", "host": [ "{{baseUrl}}" ], "path": [ "delete" ] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" }
+  ]
+}
