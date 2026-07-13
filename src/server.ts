@@ -16,6 +16,7 @@ import apiV2Routes from "./v2";
 
 import { swaggerUi, swaggerSpec } from "./config/swagger";
 import { ensureVehicleIndexes } from "./config/ensureVehicleIndexes";
+import { ensureDefaultAdminUser } from "./config/ensureDefaultAdminUser";
 import swaggerAccessMiddleware from "./middlewares/swaggerAccessMiddleware";
 
 dotenv.config();
@@ -98,6 +99,7 @@ async function startServer() {
   try {
     await mongoose.connect(process.env.MONGO_URI!);
     await ensureVehicleIndexes();
+    await ensureDefaultAdminUser();
     console.log("🔥 MongoDB conectado!");
 
     const server = http.createServer(app);
