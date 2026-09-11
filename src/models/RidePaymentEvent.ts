@@ -5,6 +5,7 @@ export interface IRidePaymentEvent extends Document {
   provider: string;
   providerEvent: string;
   providerPaymentId?: string | null;
+  providerEventId?: string | null;
   payload: Record<string, unknown>;
   processed: boolean;
   processedAt?: Date | null;
@@ -32,6 +33,12 @@ const RidePaymentEventSchema = new Schema<IRidePaymentEvent>(
       trim: true,
     },
     providerPaymentId: {
+      type: String,
+      default: null,
+      index: true,
+      trim: true,
+    },
+    providerEventId: {
       type: String,
       default: null,
       index: true,

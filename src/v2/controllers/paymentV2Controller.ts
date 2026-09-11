@@ -58,12 +58,7 @@ export const paymentV2Controller = {
         return;
       }
 
-      const amount = Number(
-        req.body?.amount ??
-          (ride as any)?.fare?.total_amount ??
-          (ride as any)?.product?.price ??
-          0,
-      );
+      const amount = Number((ride as any)?.fare?.total_amount ?? (ride as any)?.product?.price ?? 0);
 
       const payload = await paymentOrchestrator.createPixRidePayment({
         rideId,
@@ -143,12 +138,7 @@ export const paymentV2Controller = {
         return;
       }
 
-      const amount = Number(
-        req.body?.amount ??
-          (ride as any)?.fare?.total_amount ??
-          (ride as any)?.product?.price ??
-          0,
-      );
+      const amount = Number((ride as any)?.fare?.total_amount ?? (ride as any)?.product?.price ?? 0);
 
       const payload = await paymentOrchestrator.createCardRidePayment({
         rideId,
@@ -170,6 +160,7 @@ export const paymentV2Controller = {
               expiryYear: String(req.body?.expiryYear || "").trim(),
               ccv: String(req.body?.ccv || "").trim(),
             },
+        remoteIp: req.ip,
       });
 
       res.status(201).json({

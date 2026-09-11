@@ -56,6 +56,7 @@ type CreateCardPaymentInput = {
   saveCard?: boolean;
   setAsDefault?: boolean;
   label?: string | null;
+  remoteIp?: string | null;
 };
 
 function ensureValidObjectId(value: string, message: string) {
@@ -247,6 +248,13 @@ export const paymentOrchestrator = {
       throw error;
     }
 
+    if (String((ride as any).passengerId || (ride as any)?.rider?.id || "") !== input.passengerId) {
+      const error = new Error("Corrida não pertence ao passageiro autenticado.") as Error & { statusCode?: number; code?: string };
+      error.statusCode = 403;
+      error.code = "RIDE_NOT_OWNED";
+      throw error;
+    }
+
     const policy = await paymentPolicyEngine.resolve({
       cityId: input.cityId,
       productId: input.productId,
@@ -266,6 +274,7 @@ export const paymentOrchestrator = {
       externalReference: input.rideId,
       amount: input.amount,
       description: input.description,
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     });
 
     return RidePayment.create({
@@ -304,6 +313,13 @@ export const paymentOrchestrator = {
       };
       error.statusCode = 404;
       error.code = "RIDE_NOT_FOUND";
+      throw error;
+    }
+
+    if (String((ride as any).passengerId || (ride as any)?.rider?.id || "") !== input.passengerId) {
+      const error = new Error("Corrida não pertence ao passageiro autenticado.") as Error & { statusCode?: number; code?: string };
+      error.statusCode = 403;
+      error.code = "RIDE_NOT_OWNED";
       throw error;
     }
 
@@ -415,6 +431,7 @@ export const paymentOrchestrator = {
       externalReference: input.rideId,
       amount: input.amount,
       description: input.description,
+      remoteIp: input.remoteIp,
     });
 
     return RidePayment.create({

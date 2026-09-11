@@ -45,6 +45,7 @@ export type PaymentProviderCreatePixInput = {
   externalReference: string;
   amount: number;
   description: string;
+  dueDate: string;
 };
 
 export type PaymentProviderCreatePixResult = {
@@ -63,6 +64,7 @@ export type PaymentProviderCreateCardChargeInput = {
   externalReference: string;
   amount: number;
   description: string;
+  remoteIp?: string | null;
 };
 
 export type PaymentProviderCreateCardChargeResult = {
@@ -77,6 +79,7 @@ export type PaymentProviderWebhookEvent = {
   provider: PaymentProviderName;
   providerEvent: string;
   providerPaymentId?: string | null;
+  providerEventId?: string | null;
   status: PaymentEventStatus;
   amount?: number | null;
   paidAt?: string | null;

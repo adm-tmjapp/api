@@ -86,7 +86,7 @@ export class AsaasPaymentProvider implements PaymentProvider {
     this.baseUrl = (
       options.baseUrl ||
       process.env.ASAAS_BASE_URL ||
-      "https://sandbox.asaas.com/api/v3"
+      "https://api-sandbox.asaas.com/v3"
     ).replace(/\/$/, "");
 
     if (!this.apiKey) {
@@ -129,7 +129,7 @@ export class AsaasPaymentProvider implements PaymentProvider {
   async tokenizeCard(
     input: PaymentProviderTokenizeCardInput,
   ): Promise<PaymentProviderTokenizeCardResult> {
-    const raw = await this.request("/creditCard/tokenize", {
+    const raw = await this.request("/creditCard/tokenizeCreditCard", {
       method: "POST",
       body: JSON.stringify({
         customer: input.providerCustomerId,
@@ -167,6 +167,7 @@ export class AsaasPaymentProvider implements PaymentProvider {
         customer: input.providerCustomerId,
         billingType: "PIX",
         value: input.amount,
+        dueDate: input.dueDate,
         description: input.description,
         externalReference: input.externalReference,
       }),
@@ -207,6 +208,8 @@ export class AsaasPaymentProvider implements PaymentProvider {
         description: input.description,
         externalReference: input.externalReference,
         creditCardToken: input.providerPaymentMethodToken,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        remoteIp: input.remoteIp || undefined,
       }),
     });
 
@@ -227,6 +230,7 @@ export class AsaasPaymentProvider implements PaymentProvider {
     return {
       provider: this.name,
       providerEvent: String(payload.event || payment.status || "UNKNOWN"),
+      providerEventId: payload.id ? String(payload.id) : null,
       providerPaymentId: payment.id ? String(payment.id) : null,
       status: normalizeAsaasStatus(String(payment.status || payload.event || "")),
       amount:

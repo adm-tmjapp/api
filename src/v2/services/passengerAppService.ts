@@ -340,7 +340,7 @@ export const passengerAppService = {
     applyRideCheckoutData(rideDoc, body, ride);
 
     await rideDoc.save();
-    const dispatch = await buildDispatchPayload(rideDoc);
+    const dispatch = body?.deferDispatch ? null : await buildDispatchPayload(rideDoc);
 
     return {
       message: "Produto e método de pagamento atualizados com sucesso",
