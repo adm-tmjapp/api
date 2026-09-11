@@ -226,6 +226,36 @@ export class UserController {
     }
   }
 
+  static async updateRole(req: Request, res: Response) {
+    try {
+      if (req.user?.id === req.params.id) {
+        return res.status(400).json({
+          success: false,
+          message: "Não é permitido alterar o próprio tipo de usuário",
+        });
+      }
+
+      const role = req.body?.role;
+      if (!["passenger", "driver", "admin"].includes(role)) {
+        return res.status(422).json({
+          success: false,
+          message: "Tipo de usuário inválido",
+        });
+      }
+
+      const user = await UserService.updateRole(req.params.id as string, role);
+      return res.status(200).json({
+        success: true,
+        user: UserController.serializeUser(user),
+      });
+    } catch (error: any) {
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Erro ao alterar tipo de usuário",
+      });
+    }
+  }
+
   /**
    * @openapi
    * /users/{id}/photo:

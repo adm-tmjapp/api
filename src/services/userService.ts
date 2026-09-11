@@ -76,6 +76,25 @@ export class UserService {
     await User.deleteOne({ _id: objectId }).exec();
   }
 
+  static async updateRole(
+    userId: string | mongoose.Types.ObjectId,
+    role: "passenger" | "driver" | "admin",
+  ): Promise<IUser> {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { role, authStatus: role === "driver" ? "PENDING_EMAIL" : "ACTIVE" },
+      { new: true, runValidators: true },
+    ).exec();
+
+    if (!user) {
+      const error = new Error("Usuário não encontrado") as Error & { statusCode?: number };
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return user;
+  }
+
   // Atualizar foto de perfil
   static async updateProfilePhoto(
     userId: string | mongoose.Types.ObjectId,

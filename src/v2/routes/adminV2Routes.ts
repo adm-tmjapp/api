@@ -19,6 +19,7 @@ router.use(authMiddleware("admin"));
 router.get("/users/:id", asyncHandler(UserController.getUserById));
 router.put("/users/:id", asyncHandler(UserController.updateUser));
 router.delete("/users/:id", asyncHandler(UserController.deleteUser));
+router.patch("/users/:id/role", asyncHandler(UserController.updateRole));
 router.put("/users/:id/photo", asyncHandler(UserController.updateProfilePhoto));
 router.put("/users/:id/block", asyncHandler(adminBackofficeController.blockUser));
 router.put("/users/:id/unblock", asyncHandler(adminBackofficeController.unblockUser));
