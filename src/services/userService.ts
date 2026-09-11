@@ -2,6 +2,10 @@ import User, { IUser } from "../models/User";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import DriverDocumentService from "./driverDocumentService";
+import Ride from "../models/Ride";
+import Payment from "../models/Payment";
+import RidePayment from "../models/RidePayment";
+import Driver from "../models/Driver";
 
 export class UserService {
   // Criar novo usuário com senha criptografada
@@ -44,6 +48,32 @@ export class UserService {
     update: Partial<Pick<IUser, "name" | "phone">>
   ): Promise<IUser | null> {
     return User.findByIdAndUpdate(userId, update, { new: true }).exec();
+  }
+
+  static async deleteUser(userId: string | mongoose.Types.ObjectId): Promise<void> {
+    const user = await User.findById(userId).select("_id").lean();
+    if (!user) {
+      const error = new Error("Usuário não encontrado") as Error & { statusCode?: number };
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const [rides, payments, ridePayments, driver] = await Promise.all([
+      Ride.countDocuments({ $or: [{ passengerId: objectId }, { "rider.id": String(userId) }, { "driver.id": String(userId) }] }),
+      Payment.countDocuments({ $or: [{ passengerId: objectId }, { driverId: objectId }] }),
+      RidePayment.countDocuments({ $or: [{ passengerId: objectId }, { driverId: objectId }] }),
+      Driver.exists({ userId: objectId }),
+    ]);
+
+    if (rides || payments || ridePayments || driver) {
+      const error = new Error("Usuário possui dados vinculados e não pode ser excluído") as Error & { statusCode?: number; details?: unknown };
+      error.statusCode = 409;
+      error.details = { rides, payments, ridePayments, driver: !!driver };
+      throw error;
+    }
+
+    await User.deleteOne({ _id: objectId }).exec();
   }
 
   // Atualizar foto de perfil

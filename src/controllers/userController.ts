@@ -206,6 +206,26 @@ export class UserController {
     }
   }
 
+  static async deleteUser(req: Request, res: Response) {
+    try {
+      if (req.user?.id === req.params.id) {
+        return res.status(400).json({
+          success: false,
+          message: "Não é permitido excluir o próprio usuário administrador",
+        });
+      }
+
+      await UserService.deleteUser(req.params.id as string);
+      return res.status(204).send();
+    } catch (error: any) {
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Erro ao excluir usuário",
+        ...(error.details ? { details: error.details } : {}),
+      });
+    }
+  }
+
   /**
    * @openapi
    * /users/{id}/photo:
