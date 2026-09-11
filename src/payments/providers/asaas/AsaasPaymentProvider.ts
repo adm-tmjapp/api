@@ -99,6 +99,7 @@ export class AsaasPaymentProvider implements PaymentProvider {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        "User-Agent": "TMJApp/1.0.0 (Node.js; production)",
         access_token: this.apiKey,
         ...(init?.headers || {}),
       },

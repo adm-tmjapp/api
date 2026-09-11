@@ -95,6 +95,8 @@ if [[ "${CREATE_SECRETS_FROM_ENV:-0}" == "1" ]]; then
   create_secret_from_env FIREBASE_DATABASE_URL tmjapp-firebase-database-url
   create_secret_from_env ASAAS_API_KEY tmjapp-asaas-api-key
   create_secret_from_env ASAAS_BASE_URL tmjapp-asaas-base-url
+  create_secret_from_env ASAAS_WEBHOOK_TOKEN tmjapp-asaas-webhook-token
+  create_secret_from_env ASAAS_WALLET_ID tmjapp-asaas-wallet-id
   create_secret_from_env SWAGGER_ACCESS_CODE tmjapp-swagger-access-code
   create_secret_from_env API_PUBLIC_BASE_URL tmjapp-api-public-base-url
 else
