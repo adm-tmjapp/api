@@ -151,7 +151,7 @@ async function ensureDriverUser(driverUserId: string) {
     Driver.findOne({ userId: driverUserId }),
   ]);
 
-  if (!user || user.role !== "driver") {
+  if (!user || !["driver", "admin"].includes(String(user.role))) {
     throw new DriverProfileServiceError(
       404,
       "DRIVER_NOT_FOUND",
