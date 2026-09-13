@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Driver from "../../models/Driver";
 import DriverDeviceToken from "../../models/DriverDeviceToken";
+import User from "../../models/User";
 
 export class DriverDeviceTokenServiceError extends Error {
   statusCode: number;
@@ -39,8 +40,11 @@ export const driverDeviceTokenService = {
       );
     }
 
-    const driver = await Driver.findOne({ userId: driverUserId }).lean();
-    if (!driver) {
+    const [driver, user] = await Promise.all([
+      Driver.findOne({ userId: driverUserId }).lean(),
+      User.findById(driverUserId).select("role").lean(),
+    ]);
+    if (!driver && user?.role !== "admin") {
       throw new DriverDeviceTokenServiceError(
         404,
         "DRIVER_NOT_FOUND",

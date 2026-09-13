@@ -152,10 +152,17 @@ function toRideLifecyclePayload(ride: any) {
 
 async function ensureDriverByUserId(userId: string) {
   const driver = await Driver.findOne({ userId });
+  if (driver) return driver;
+
+  const user = await User.findById(userId).select("role").lean();
+  if (user?.role === "admin") {
+    return null;
+  }
+
   if (!driver) {
     throw new ServiceError(404, "DRIVER_NOT_FOUND", "Motorista não encontrado.");
   }
-  return driver;
+  return null;
 }
 
 function buildBasePendingFilters(filters: PendingRideFilters): Record<string, unknown> {
@@ -285,7 +292,7 @@ export const driverDashboardService = {
 
     return {
       success: true,
-      availability: mapAvailability(Boolean((driver as any).isAvailable)),
+      availability: mapAvailability(Boolean((driver as any)?.isAvailable)),
       summary: {
         todayRides,
         todayEarnings,
