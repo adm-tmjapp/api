@@ -1,26 +1,31 @@
 import DriverDocument, { IDriverDocument } from "../models/DriverDocument";
 import mongoose from "mongoose";
-import crypto from "crypto";
-import admin from "../config/firebase";
+import { Storage } from "@google-cloud/storage";
+
+const storage = new Storage();
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-function buildStorageFileUrl(
+async function buildStorageFileUrl(
   bucketName: string,
   objectName: string,
-  downloadToken: string,
 ) {
-  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(objectName)}?alt=media&token=${downloadToken}`;
+  const [url] = await storage.bucket(bucketName).file(objectName).getSignedUrl({
+    version: "v4",
+    action: "read",
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  });
+  return url;
 }
 
 function getStorageBucket() {
-  const bucketName = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  const bucketName = process.env.GCS_BUCKET_NAME?.trim();
   if (!bucketName) {
-    throw new Error("FIREBASE_STORAGE_BUCKET não configurado");
+    throw new Error("GCS_BUCKET_NAME não configurado");
   }
-  return admin.storage().bucket(bucketName);
+  return storage.bucket(bucketName);
 }
 
 export class DriverDocumentService {
@@ -30,7 +35,7 @@ export class DriverDocumentService {
     const payload: any = { ...data };
     if (data.user) payload.user = new mongoose.Types.ObjectId(data.user as any);
 
-    // If a base64 file was provided, upload to Firebase Storage and set fileUrl.
+    // If a base64 file was provided, upload to Google Cloud Storage and set fileUrl.
     if (data.fileBase64 && data.filename) {
       // Convert base64 to buffer
       const matches = data.fileBase64.match(/^data:(.+);base64,(.+)$/);
@@ -46,28 +51,26 @@ export class DriverDocumentService {
 
       const key = `driver-documents/${
         payload.user ? payload.user.toString() : "anonymous"
-      }/${Date.now()}-${data.filename}`;
+      }/${Date.now()}-${sanitizeFileName(data.filename)}`;
 
       const bucket = getStorageBucket();
       const file = bucket.file(key);
-      const downloadToken = crypto.randomUUID();
       await file.save(buffer, {
         resumable: false,
         metadata: {
           contentType: contentType || "application/octet-stream",
-          metadata: { firebaseStorageDownloadTokens: downloadToken },
         },
       });
-      payload.fileUrl = buildStorageFileUrl(bucket.name, key, downloadToken);
+      payload.fileUrl = await buildStorageFileUrl(bucket.name, key);
     }
 
     return new DriverDocument(payload).save();
   }
 
   /**
-   * Faz upload de um arquivo (ex.: `Express.Multer.File`) para o Firebase Storage.
+   * Faz upload de um arquivo (ex.: `Express.Multer.File`) para o Google Cloud Storage.
    * Recebe um objeto que contém `buffer`, `originalname` e `mimetype`.
-   * Retorna a URL pública do arquivo enviado.
+   * Retorna uma URL assinada temporária para o arquivo enviado.
    */
   static async uploadFile(file: any, user?: string) {
     if (!file) throw new Error("No file provided");
@@ -84,16 +87,14 @@ export class DriverDocumentService {
 
     const bucket = getStorageBucket();
     const target = bucket.file(key);
-    const downloadToken = crypto.randomUUID();
     await target.save(buffer, {
       resumable: false,
       metadata: {
         contentType: file.mimetype || "application/octet-stream",
-        metadata: { firebaseStorageDownloadTokens: downloadToken },
       },
     });
 
-    return buildStorageFileUrl(bucket.name, key, downloadToken);
+    return buildStorageFileUrl(bucket.name, key);
   }
 
   static async upsertDriverDocumentWithFile(data: {

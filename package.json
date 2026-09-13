@@ -23,6 +23,7 @@
   "description": "",
   "dependencies": {
     "@coreui/react": "^5.9.0",
+    "@google-cloud/storage": "^8.1.0",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
