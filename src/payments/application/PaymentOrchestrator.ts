@@ -6,6 +6,7 @@ import Ride from "../../models/Ride";
 import User from "../../models/User";
 import { paymentPolicyEngine } from "./PaymentPolicyEngine";
 import { createPaymentProvider } from "../providers/PaymentProviderFactory";
+import { rideMatchingService } from "../../v2/services/rideMatchingService";
 
 type EnsureCustomerInput = {
   userId: string;
@@ -277,7 +278,7 @@ export const paymentOrchestrator = {
       dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     });
 
-    return RidePayment.create({
+    const payment = await RidePayment.create({
       rideId: new mongoose.Types.ObjectId(input.rideId),
       passengerId: new mongoose.Types.ObjectId(input.passengerId),
       driverId: input.driverId ? new mongoose.Types.ObjectId(input.driverId) : null,
@@ -299,6 +300,15 @@ export const paymentOrchestrator = {
         : null,
       providerPayload: providerCharge.raw,
     });
+
+    await Ride.findByIdAndUpdate(input.rideId, {
+      paymentStatus: providerCharge.status,
+      paymentExpiresAt: new Date(
+        Date.now() + Number(process.env.RIDE_PAYMENT_TIMEOUT_MS || 5 * 60 * 1000),
+      ),
+    });
+
+    return payment;
   },
 
   async createCardRidePayment(input: CreateCardPaymentInput) {
@@ -434,7 +444,7 @@ export const paymentOrchestrator = {
       remoteIp: input.remoteIp,
     });
 
-    return RidePayment.create({
+    const payment = await RidePayment.create({
       rideId: new mongoose.Types.ObjectId(input.rideId),
       passengerId: new mongoose.Types.ObjectId(input.passengerId),
       driverId: input.driverId ? new mongoose.Types.ObjectId(input.driverId) : null,
@@ -454,18 +464,107 @@ export const paymentOrchestrator = {
       providerPayload: providerCharge.raw,
       paidAt: providerCharge.status === "PAID" ? new Date() : null,
     });
+
+    await this.activateRideAfterPayment(input.rideId, providerCharge.status);
+    return payment;
   },
 
-  async getRidePaymentStatus(input: { rideId: string; passengerId: string }) {
+  async activateRideAfterPayment(rideId: string, paymentStatus: string) {
+    if (!["PAID", "AUTHORIZED"].includes(paymentStatus)) return null;
+
+    const ride = await Ride.findOneAndUpdate(
+      {
+        _id: rideId,
+        status: "pending",
+        paymentStatus: { $in: ["PENDING", "WAITING_PIX_PAYMENT", "AUTHORIZED", "PAID"] },
+      },
+      {
+        $set: {
+          paymentStatus,
+          paymentExpiresAt: null,
+          dispatchStartedAt: new Date(),
+        },
+      },
+      { new: true },
+    ).lean();
+
+    if (!ride) return null;
+    return rideMatchingService.startDispatch(rideId);
+  },
+
+  async cancelRidePayment(input: { rideId: string; passengerId: string }) {
     ensureValidObjectId(input.rideId, "Ride inválida.");
     ensureValidObjectId(input.passengerId, "Passageiro inválido.");
 
     const payment = await RidePayment.findOne({
       rideId: new mongoose.Types.ObjectId(input.rideId),
       passengerId: new mongoose.Types.ObjectId(input.passengerId),
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    }).sort({ createdAt: -1 });
+
+    if (!payment) {
+      return { payment: null, canceled: false, reason: "PAYMENT_NOT_FOUND" };
+    }
+
+    if (["PAID", "REFUNDED", "CHARGEBACK"].includes(payment.status)) {
+      const error = new Error("Pagamento já liquidado e não pode ser cancelado automaticamente.") as Error & {
+        statusCode?: number;
+        code?: string;
+      };
+      error.statusCode = 422;
+      error.code = "PAYMENT_NOT_CANCELABLE";
+      throw error;
+    }
+
+    if (payment.status === "CANCELED") {
+      return {
+        payment: { id: String(payment._id), status: payment.status },
+        canceled: true,
+        reason: "ALREADY_CANCELED",
+      };
+    }
+
+    const providerPaymentId = String(payment.providerPaymentId || "").trim();
+    if (providerPaymentId) {
+      try {
+        const provider = createPaymentProvider(payment.provider);
+        await provider.cancelPayment(providerPaymentId);
+      } catch (cause) {
+        const error = new Error("Não foi possível cancelar a cobrança no gateway de pagamento.") as Error & {
+          statusCode?: number;
+          code?: string;
+          details?: Record<string, unknown>;
+        };
+        error.statusCode = 502;
+        error.code = "PAYMENT_PROVIDER_CANCEL_FAILED";
+        error.details = { provider: payment.provider, cause: (cause as Error)?.message || String(cause) };
+        throw error;
+      }
+    }
+
+    payment.status = "CANCELED";
+    payment.paidAt = null;
+    await payment.save();
+
+    return {
+      payment: { id: String(payment._id), status: payment.status },
+      canceled: true,
+      reason: providerPaymentId ? "CANCELED_AT_PROVIDER" : "CANCELED_LOCALLY",
+    };
+  },
+
+  async getRidePaymentStatus(input: { rideId: string; passengerId: string }) {
+    ensureValidObjectId(input.rideId, "Ride inválida.");
+    ensureValidObjectId(input.passengerId, "Passageiro inválido.");
+
+    const [payment, ride] = await Promise.all([
+      RidePayment.findOne({
+      rideId: new mongoose.Types.ObjectId(input.rideId),
+      passengerId: new mongoose.Types.ObjectId(input.passengerId),
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Ride.findById(input.rideId).select("paymentExpiresAt paymentStatus").lean(),
+    ]);
 
     if (!payment) {
       const error = new Error("Pagamento não encontrado.") as Error & {
@@ -483,6 +582,10 @@ export const paymentOrchestrator = {
       provider: payment.provider,
       billingType: payment.billingType,
       status: payment.status,
+      ridePaymentStatus: (ride as any)?.paymentStatus || payment.status,
+      paymentExpiresAt: (ride as any)?.paymentExpiresAt
+        ? (ride as any).paymentExpiresAt.toISOString()
+        : null,
       grossAmount: payment.grossAmount,
       pix: payment.billingType === "PIX"
         ? {

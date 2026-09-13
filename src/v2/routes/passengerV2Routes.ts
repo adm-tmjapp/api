@@ -68,6 +68,10 @@ router.get(
   "/rides/:rideId/payments/receipt",
   asyncHandler(paymentV2Controller.getPassengerRidePaymentReceipt),
 );
+router.post(
+  "/rides/:rideId/payments/cancel",
+  asyncHandler(paymentV2Controller.cancelPassengerRidePayment),
+);
 
 router.post(
   "/profile/photo",

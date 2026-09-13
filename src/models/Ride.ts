@@ -3,6 +3,12 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IRide extends Document {
   passengerId?: string;
   status?: "pending" | "accepted" | "ongoing" | "completed" | "canceled";
+  paymentStatus?: string | null;
+  quoteExpiresAt?: Date | null;
+  paymentExpiresAt?: Date | null;
+  dispatchStartedAt?: Date | null;
+  canceledAt?: Date | null;
+  cancellationReason?: string | null;
   requestedAt?: Date;
   acceptedAt?: Date;
   arrivedAt?: Date;
@@ -100,6 +106,12 @@ const RideSchema = new Schema<IRide>({
     enum: ["pending", "accepted", "ongoing", "completed", "canceled"],
     required: false,
   },
+  paymentStatus: { type: String, default: null, index: true },
+  quoteExpiresAt: { type: Date, default: null, index: true },
+  paymentExpiresAt: { type: Date, default: null, index: true },
+  dispatchStartedAt: { type: Date, default: null },
+  canceledAt: { type: Date, default: null },
+  cancellationReason: { type: String, default: null },
   requestedAt: { type: Date, required: false },
   acceptedAt: { type: Date, required: false },
   arrivedAt: { type: Date, required: false },

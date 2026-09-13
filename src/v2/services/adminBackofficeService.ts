@@ -11,6 +11,7 @@ import VehiclePhoto from "../../models/VehiclePhoto";
 import DriverDocumentService from "../../services/driverDocumentService";
 import { OnboardingService } from "../../services/onboardingService";
 import VehicleService from "../../services/vehicleService";
+import { paymentOrchestrator } from "../../payments/application/PaymentOrchestrator";
 
 type AdminPeriod = "weekly" | "biweekly" | "monthly";
 
@@ -537,6 +538,11 @@ export const adminBackofficeService = {
       throw new AdminBackofficeError(400, "INVALID_STATUS", "Corrida já está finalizada ou cancelada.");
     }
 
+    const payment = await paymentOrchestrator.cancelRidePayment({
+      rideId,
+      passengerId: String(ride.passengerId || (ride as any)?.rider?.id || ""),
+    });
+
     ride.status = "canceled";
     ride.notes = reason || "Cancelado pelo administrador";
     await ride.save();
@@ -548,7 +554,7 @@ export const adminBackofficeService = {
       details: { reason: ride.notes },
     });
 
-    return { success: true, message: "Corrida cancelada com sucesso." };
+    return { success: true, message: "Corrida cancelada com sucesso.", payment };
   },
 
   async adminReassignDriver(rideId: string, driverId: string) {

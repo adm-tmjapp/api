@@ -36,6 +36,24 @@ export const driverPushService = {
             title: "Nova corrida disponível",
             body: payload.pickupAddress || "Você tem uma nova corrida próxima",
           },
+          android: {
+            priority: "high",
+            notification: {
+              channelId: "tmj_new_rides",
+              sound: "default",
+              defaultSound: true,
+            },
+          },
+          apns: {
+            headers: {
+              "apns-priority": "10",
+            },
+            payload: {
+              aps: {
+                sound: "default",
+              },
+            },
+          },
           data: {
             type: "NEW_RIDE_REQUEST",
             rideId: payload.rideId,

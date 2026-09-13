@@ -105,5 +105,7 @@ export interface PaymentProvider {
     input: PaymentProviderCreateCardChargeInput,
   ): Promise<PaymentProviderCreateCardChargeResult>;
 
+  cancelPayment(providerPaymentId: string): Promise<void>;
+
   parseWebhook(payload: Record<string, unknown>): PaymentProviderWebhookEvent;
 }

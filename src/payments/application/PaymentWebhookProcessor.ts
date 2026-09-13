@@ -1,6 +1,7 @@
 import RidePayment from "../../models/RidePayment";
 import RidePaymentEvent from "../../models/RidePaymentEvent";
 import { createPaymentProvider } from "../providers/PaymentProviderFactory";
+import { paymentOrchestrator } from "./PaymentOrchestrator";
 
 export const paymentWebhookProcessor = {
   async process(providerName: string, payload: Record<string, unknown>) {
@@ -52,6 +53,12 @@ export const paymentWebhookProcessor = {
       }
       ridePayment.providerPayload = event.raw;
       await ridePayment.save();
+      if (["PAID", "AUTHORIZED"].includes(event.status)) {
+        await paymentOrchestrator.activateRideAfterPayment(
+          String(ridePayment.rideId),
+          event.status,
+        );
+      }
     }
 
     return {

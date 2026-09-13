@@ -225,6 +225,17 @@ export class AsaasPaymentProvider implements PaymentProvider {
     };
   }
 
+  async cancelPayment(providerPaymentId: string): Promise<void> {
+    const paymentId = String(providerPaymentId || "").trim();
+    if (!paymentId) {
+      throw new Error("ID da cobrança Asaas não informado.");
+    }
+
+    await this.request(`/payments/${encodeURIComponent(paymentId)}`, {
+      method: "DELETE",
+    });
+  }
+
   parseWebhook(payload: Record<string, unknown>): PaymentProviderWebhookEvent {
     const payment = (payload.payment || payload) as Record<string, unknown>;
 

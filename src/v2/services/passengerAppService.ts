@@ -9,6 +9,14 @@ import User from "../../models/User";
 import { calculateDistanceAndDuration, getAvailableProducts } from "../../services/routeService";
 import DriverDocumentService from "../../services/driverDocumentService";
 import { rideMatchingService } from "./rideMatchingService";
+import { paymentOrchestrator } from "../../payments/application/PaymentOrchestrator";
+
+const PAYMENT_TIMEOUT_MS = Number(
+  process.env.RIDE_PAYMENT_TIMEOUT_MS || 5 * 60 * 1000,
+);
+const QUOTE_TIMEOUT_MS = Number(
+  process.env.RIDE_QUOTE_TIMEOUT_MS || 2 * 60 * 1000,
+);
 
 type ServiceErrorCode =
   | "PASSENGER_NOT_FOUND"
@@ -95,6 +103,10 @@ function buildRideDetailPayload(ride: any) {
   return {
     id: String(ride._id),
     status: mapRideStatus(ride.status),
+    payment_status: ride.paymentStatus || null,
+    quote_expires_at: normalizeDateTime(ride.quoteExpiresAt),
+    payment_expires_at: normalizeDateTime(ride.paymentExpiresAt),
+    cancellation_reason: ride.cancellationReason || null,
     requested_at: normalizeDateTime(ride.requestedAt),
     accepted_at: normalizeDateTime(ride.acceptedAt),
     picked_up_at: normalizeDateTime(ride.pickedUpAt),
@@ -299,6 +311,7 @@ export const passengerAppService = {
       pickup_location: pickupLocation,
       destination_location: destinationLocation,
       status: "pending",
+      quoteExpiresAt: new Date(Date.now() + QUOTE_TIMEOUT_MS),
       fare: {
         currency: "BRL",
         total_amount: 0,
@@ -308,7 +321,10 @@ export const passengerAppService = {
     });
 
     let dispatch: Record<string, unknown> | null = null;
-    const shouldDispatchOnCreate = !!body?.product && !!body?.payment_method;
+    const shouldDispatchOnCreate =
+      !!body?.product &&
+      !!body?.payment_method &&
+      String(body.payment_method).toUpperCase() === "CASH";
     if (shouldDispatchOnCreate) {
       applyRideCheckoutData(ride, body);
       await ride.save();
@@ -337,14 +353,35 @@ export const passengerAppService = {
       throw new PassengerAppServiceError(404, "RIDE_NOT_FOUND", "Corrida não encontrada.");
     }
 
+    if (rideDoc.quoteExpiresAt && rideDoc.quoteExpiresAt.getTime() <= Date.now()) {
+      throw new PassengerAppServiceError(
+        422,
+        "RIDE_NOT_CANCELABLE",
+        "A cotação expirou. Solicite uma nova corrida.",
+      );
+    }
+
     applyRideCheckoutData(rideDoc, body, ride);
 
+    const paymentMethod = String(body?.payment_method || "").toUpperCase();
+    rideDoc.paymentStatus = paymentMethod === "CASH" ? "PAID" : "PENDING";
+    rideDoc.paymentExpiresAt =
+      paymentMethod === "CASH"
+        ? null
+        : new Date(Date.now() + PAYMENT_TIMEOUT_MS);
+
     await rideDoc.save();
-    const dispatch = body?.deferDispatch ? null : await buildDispatchPayload(rideDoc);
+    const dispatch =
+      paymentMethod === "CASH" && !body?.deferDispatch
+        ? await buildDispatchPayload(rideDoc)
+        : null;
 
     return {
       message: "Produto e método de pagamento atualizados com sucesso",
       ride: buildRideDetailPayload(rideDoc.toObject()),
+      paymentExpiresAt: rideDoc.paymentExpiresAt
+        ? rideDoc.paymentExpiresAt.toISOString()
+        : null,
       dispatch,
     };
   },
@@ -374,6 +411,9 @@ export const passengerAppService = {
     return {
       rideId: String(ride._id),
       status: mapRideStatus(ride.status),
+      paymentStatus: ride.paymentStatus || null,
+      paymentExpiresAt: normalizeDateTime(ride.paymentExpiresAt),
+      cancellationReason: ride.cancellationReason || null,
       updatedAt: normalizeDateTime(ride.updatedAt || ride.completedAt || ride.acceptedAt || ride.requestedAt),
     };
   },
@@ -389,11 +429,18 @@ export const passengerAppService = {
       );
     }
 
+    const payment = await paymentOrchestrator.cancelRidePayment({
+      rideId,
+      passengerId: passengerUserId,
+    });
+
     const updatedRide = await Ride.findByIdAndUpdate(
       rideId,
       {
         status: "canceled",
         notes: reason || undefined,
+        canceledAt: new Date(),
+        cancellationReason: reason || "PASSENGER_REQUEST",
       },
       { new: true },
     ).lean();
@@ -404,6 +451,7 @@ export const passengerAppService = {
         id: String(updatedRide?._id),
         status: mapRideStatus(updatedRide?.status),
       },
+      payment,
     };
   },
 

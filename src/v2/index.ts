@@ -7,6 +7,7 @@ import supportV2Routes from "./routes/supportV2Routes";
 import uploadV2Routes from "./routes/uploadV2Routes";
 import locationV2Routes from "./routes/locationV2Routes";
 import webhooksV2Routes from "./routes/webhooksV2Routes";
+import internalV2Routes from "./routes/internalV2Routes";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/support", supportV2Routes);
 router.use("/uploads", uploadV2Routes);
 router.use("/locations", locationV2Routes);
 router.use("/webhooks", webhooksV2Routes);
+router.use("/internal", internalV2Routes);
 
 export default router;

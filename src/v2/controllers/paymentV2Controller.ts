@@ -78,6 +78,9 @@ export const paymentV2Controller = {
         billingType: payload.billingType,
         status: payload.status,
         grossAmount: payload.grossAmount,
+        paymentExpiresAt: new Date(
+          Date.now() + Number(process.env.RIDE_PAYMENT_TIMEOUT_MS || 5 * 60 * 1000),
+        ).toISOString(),
         pix: {
           payload: payload.pixPayload,
           encodedImage: payload.pixEncodedImage,
@@ -201,6 +204,18 @@ export const paymentV2Controller = {
       res.status(200).json(payload);
     } catch (error) {
       handleError(res, error, "Erro ao consultar comprovante do pagamento.");
+    }
+  },
+
+  async cancelPassengerRidePayment(req: Request, res: Response) {
+    try {
+      const payload = await paymentOrchestrator.cancelRidePayment({
+        rideId: req.params.rideId as string,
+        passengerId: req.user?.id as string,
+      });
+      res.status(200).json(payload);
+    } catch (error) {
+      handleError(res, error, "Erro ao cancelar a cobrança.");
     }
   },
 
