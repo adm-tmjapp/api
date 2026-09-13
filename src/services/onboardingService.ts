@@ -77,11 +77,21 @@ export class OnboardingService {
     /* ============================
      * VEHICLE PHOTOS
      ============================ */
-    const vehiclePhotos = await VehiclePhoto.find({ user: userData._id });
+    const vehiclePhotos = vehicle
+      ? await VehiclePhoto.find({ user: userData._id, vehicle: vehicle._id })
+      : [];
 
+    const requiredVehiclePhotoTypes = new Set(["FRONT", "BACK", "INTERIOR"]);
+    const approvedVehiclePhotoTypes = new Set(
+      vehiclePhotos
+        .filter((photo) => photo.status === "APPROVED")
+        .map((photo) => String(photo.type)),
+    );
     const vehiclePhotosCompleted =
-      vehiclePhotos.length > 0 &&
-      vehiclePhotos.every((photo) => photo.status === "APPROVED");
+      requiredVehiclePhotoTypes.size === approvedVehiclePhotoTypes.size &&
+      [...requiredVehiclePhotoTypes].every((type) =>
+        approvedVehiclePhotoTypes.has(type),
+      );
 
     const vehiclePhotosUnderReview = vehiclePhotos.some(
       (photo) => photo.status === "PENDING"

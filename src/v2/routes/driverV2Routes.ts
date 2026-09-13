@@ -19,13 +19,20 @@ import { driverLocationController } from "../controllers/driverLocationControlle
 import { driverDeviceTokenController } from "../controllers/driverDeviceTokenController";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+const profilePhotoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 },
+});
 
 // Drivers and admins may update the authenticated user's profile photo.
 router.put(
   "/profile/photo",
   authMiddleware(["driver", "admin"]),
-  upload.single("file"),
+  profilePhotoUpload.single("file"),
   asyncHandler(UserController.uploadOwnProfilePhoto),
 );
 

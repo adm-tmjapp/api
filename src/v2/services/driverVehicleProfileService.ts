@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Driver from "../../models/Driver";
 import DriverDocument from "../../models/DriverDocument";
+import User from "../../models/User";
 import Vehicle from "../../models/Vehicle";
 import VehiclePhoto from "../../models/VehiclePhoto";
 import DriverDocumentService from "../../services/driverDocumentService";
@@ -24,7 +25,7 @@ type ServiceErrorCode =
 type DocumentationStatus = "APPROVED" | "PENDING" | "REJECTED" | "UNDER_REVIEW";
 type ActivationStatus = "ACTIVE" | "INACTIVE" | "BLOCKED";
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -99,7 +100,7 @@ function validateUploadFile(file: any) {
     throw new DriverVehicleProfileServiceError(
       422,
       "VALIDATION_ERROR",
-      "Arquivo excede o tamanho máximo permitido de 10MB.",
+      "Arquivo excede o tamanho máximo permitido de 5MB.",
       { field: "file", maxSizeBytes: MAX_FILE_SIZE_BYTES },
     );
   }
@@ -115,13 +116,16 @@ function validateUploadFile(file: any) {
 }
 
 async function ensureDriver(driverUserId: string) {
-  const driver = await Driver.findOne({ userId: driverUserId }).lean();
+  const [driver, user] = await Promise.all([
+    Driver.findOne({ userId: driverUserId }).lean(),
+    User.findById(driverUserId).select("role").lean(),
+  ]);
 
-  if (!driver) {
+  if (!user || !["driver", "admin"].includes(String(user.role))) {
     throw new DriverVehicleProfileServiceError(
       404,
       "DRIVER_NOT_FOUND",
-      "Motorista não encontrado.",
+      "Usuário motorista não encontrado.",
     );
   }
 
