@@ -21,7 +21,17 @@ import { driverDeviceTokenController } from "../controllers/driverDeviceTokenCon
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.use(authMiddleware("driver"));
+// Drivers and admins may update the authenticated user's profile photo.
+router.put(
+  "/profile/photo",
+  authMiddleware(["driver", "admin"]),
+  upload.single("file"),
+  asyncHandler(UserController.uploadOwnProfilePhoto),
+);
+
+// The Drive API is available to both driver accounts and admin test accounts.
+// Individual handlers still resolve the authenticated user's own resources.
+router.use(authMiddleware(["driver", "admin"]));
 
 router.post(
   "/profile/register",
@@ -126,12 +136,6 @@ router.get(
 
     res.json({ user: userObj, vehicle: vehicleObj });
   }),
-);
-
-router.put(
-  "/profile/photo",
-  upload.single("file"),
-  asyncHandler(UserController.uploadOwnProfilePhoto),
 );
 
 router.post(

@@ -57,6 +57,7 @@ function verifyTokenAndAttachUser(
 // role factory `authMiddleware('role')`, or direct middleware `authMiddleware(req,res,next)`.
 function authMiddleware(): RequestHandler;
 function authMiddleware(role: Role): RequestHandler;
+function authMiddleware(roles: Role[]): RequestHandler;
 function authMiddleware(req: Request, res: Response, next: NextFunction): void;
 function authMiddleware(arg1?: any, arg2?: any, arg3?: any): any {
   // Called as factory with role: authMiddleware('driver')
