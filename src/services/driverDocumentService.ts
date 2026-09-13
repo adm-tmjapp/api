@@ -1,33 +1,26 @@
 import DriverDocument, { IDriverDocument } from "../models/DriverDocument";
-import fs from "fs";
 import mongoose from "mongoose";
-import path from "path";
-import AWS from "aws-sdk";
-
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
-});
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
+import crypto from "crypto";
+import admin from "../config/firebase";
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-function getLocalUploadDir(user?: string) {
-  return path.resolve(
-    process.cwd(),
-    "uploads",
-    "driver-documents",
-    user || "anonymous",
-  );
+function buildStorageFileUrl(
+  bucketName: string,
+  objectName: string,
+  downloadToken: string,
+) {
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(objectName)}?alt=media&token=${downloadToken}`;
 }
 
-function buildLocalFileUrl(user: string | undefined, fileName: string) {
-  const baseUrl =
-    (process.env.API_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, "");
-  return `${baseUrl}/uploads/files/driver-documents/${user || "anonymous"}/${fileName}`;
+function getStorageBucket() {
+  const bucketName = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  if (!bucketName) {
+    throw new Error("FIREBASE_STORAGE_BUCKET não configurado");
+  }
+  return admin.storage().bucket(bucketName);
 }
 
 export class DriverDocumentService {
@@ -37,10 +30,8 @@ export class DriverDocumentService {
     const payload: any = { ...data };
     if (data.user) payload.user = new mongoose.Types.ObjectId(data.user as any);
 
-    // If a base64 file was provided, upload to S3 and set fileUrl
+    // If a base64 file was provided, upload to Firebase Storage and set fileUrl.
     if (data.fileBase64 && data.filename) {
-      if (!BUCKET_NAME) throw new Error("AWS_S3_BUCKET_NAME not configured");
-
       // Convert base64 to buffer
       const matches = data.fileBase64.match(/^data:(.+);base64,(.+)$/);
       let buffer: Buffer;
@@ -57,23 +48,24 @@ export class DriverDocumentService {
         payload.user ? payload.user.toString() : "anonymous"
       }/${Date.now()}-${data.filename}`;
 
-      const params: AWS.S3.PutObjectRequest = {
-        Bucket: BUCKET_NAME!,
-        Key: key,
-        Body: buffer,
-        ACL: "public-read",
-        ContentType: contentType || "application/octet-stream",
-      };
-
-      const uploadResult = await s3.upload(params).promise();
-      payload.fileUrl = uploadResult.Location;
+      const bucket = getStorageBucket();
+      const file = bucket.file(key);
+      const downloadToken = crypto.randomUUID();
+      await file.save(buffer, {
+        resumable: false,
+        metadata: {
+          contentType: contentType || "application/octet-stream",
+          metadata: { firebaseStorageDownloadTokens: downloadToken },
+        },
+      });
+      payload.fileUrl = buildStorageFileUrl(bucket.name, key, downloadToken);
     }
 
     return new DriverDocument(payload).save();
   }
 
   /**
-   * Faz upload de um arquivo (ex.: `Express.Multer.File`) para o S3.
+   * Faz upload de um arquivo (ex.: `Express.Multer.File`) para o Firebase Storage.
    * Recebe um objeto que contém `buffer`, `originalname` e `mimetype`.
    * Retorna a URL pública do arquivo enviado.
    */
@@ -84,25 +76,24 @@ export class DriverDocumentService {
       file.originalname || file.name || "file",
     )}`;
 
-    if (!BUCKET_NAME) {
-      const uploadDir = getLocalUploadDir(user);
-      fs.mkdirSync(uploadDir, { recursive: true });
-      const targetPath = path.join(uploadDir, finalFileName);
-      fs.writeFileSync(targetPath, file.buffer || file);
-      return buildLocalFileUrl(user, finalFileName);
+    const key = `driver-documents/${user || "anonymous"}/${finalFileName}`;
+    const buffer = file.buffer || file;
+    if (!Buffer.isBuffer(buffer)) {
+      throw new Error("Arquivo de upload sem conteúdo em memória");
     }
 
-    const key = `driver-documents/${user ? user : "anonymous"}/${finalFileName}`;
+    const bucket = getStorageBucket();
+    const target = bucket.file(key);
+    const downloadToken = crypto.randomUUID();
+    await target.save(buffer, {
+      resumable: false,
+      metadata: {
+        contentType: file.mimetype || "application/octet-stream",
+        metadata: { firebaseStorageDownloadTokens: downloadToken },
+      },
+    });
 
-    const params: AWS.S3.PutObjectRequest | AWS.S3.GetObjectRequest = {
-      Bucket: BUCKET_NAME!,
-      Key: key,
-      Body: file.buffer || file.stream || file,
-      ContentType: file.mimetype || "application/octet-stream",
-    };
-
-    const uploadResult = await s3.upload(params).promise();
-    return uploadResult.Location;
+    return buildStorageFileUrl(bucket.name, key, downloadToken);
   }
 
   static async upsertDriverDocumentWithFile(data: {
