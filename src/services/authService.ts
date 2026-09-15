@@ -188,7 +188,10 @@ export class AuthService {
    ===================================================== */
 
   static async forgotPassword(email: string) {
-    const user = await User.findOne({ email });
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!normalizedEmail) return;
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) return;
 
     const code = generateVerificationCode(6);
