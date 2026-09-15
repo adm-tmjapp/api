@@ -156,7 +156,30 @@ async function ensureDriverByUserId(userId: string) {
 
   const user = await User.findById(userId).select("role").lean();
   if (user?.role === "admin") {
-    return null;
+    // Admins used in the operational test flow can also act as drivers.
+    // Create the minimum Driver profile once so availability, location,
+    // device tokens and ride actions use the same operational path.
+    return Driver.findOneAndUpdate(
+      { userId },
+      {
+        $setOnInsert: {
+          userId,
+          licenseNumber: `ADMIN-${userId.slice(-8).toUpperCase()}`,
+          vehicle: {
+            make: "TMJ",
+            model: "Veículo de teste",
+            year: new Date().getFullYear(),
+            plate: `TEST-${userId.slice(-4).toUpperCase()}`,
+          },
+          location: {
+            type: "Point",
+            coordinates: [0, 0],
+          },
+          isAvailable: false,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
   }
 
   if (!driver) {
