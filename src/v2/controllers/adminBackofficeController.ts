@@ -3,6 +3,7 @@ import {
   adminBackofficeService,
   AdminBackofficeError,
 } from "../services/adminBackofficeService";
+import { driverWalletService, DriverWalletServiceError } from "../services/driverWalletService";
 
 function handleError(res: Response, error: unknown, fallbackMessage: string) {
   if (error instanceof AdminBackofficeError) {
@@ -24,6 +25,48 @@ function handleError(res: Response, error: unknown, fallbackMessage: string) {
 }
 
 export const adminBackofficeController = {
+  async listDriverWithdrawals(req: Request, res: Response) {
+    try {
+      const payload = await driverWalletService.listAdminTransfers({
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        page: Number(req.query.page || 1),
+        limit: Number(req.query.limit || 20),
+      });
+      res.status(200).json(payload);
+    } catch (error) {
+      if (error instanceof DriverWalletServiceError) {
+        res.status(error.status).json({ success: false, message: error.message, code: error.code });
+        return;
+      }
+      res.status(500).json({ success: false, message: "Erro ao listar saques." });
+    }
+  },
+
+  async approveDriverWithdrawal(req: Request, res: Response) {
+    try {
+      const payload = await driverWalletService.approveWithdrawal(String(req.params.id), req.user?.id as string);
+      res.status(200).json(payload);
+    } catch (error: any) {
+      if (error instanceof DriverWalletServiceError) {
+        res.status(error.status).json({ success: false, message: error.message, code: error.code });
+        return;
+      }
+      res.status(error?.statusCode || 502).json({ success: false, message: error?.message || "Erro ao solicitar transferência no ASAAS." });
+    }
+  },
+
+  async rejectDriverWithdrawal(req: Request, res: Response) {
+    try {
+      const payload = await driverWalletService.rejectWithdrawal(String(req.params.id), req.user?.id as string, req.body?.reason);
+      res.status(200).json(payload);
+    } catch (error) {
+      if (error instanceof DriverWalletServiceError) {
+        res.status(error.status).json({ success: false, message: error.message, code: error.code });
+        return;
+      }
+      res.status(500).json({ success: false, message: "Erro ao rejeitar saque." });
+    }
+  },
   async getDashboard(req: Request, res: Response) {
     try {
       const period = typeof req.query.period === "string" ? req.query.period : "monthly";

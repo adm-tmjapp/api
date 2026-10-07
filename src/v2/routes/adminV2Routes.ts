@@ -31,6 +31,9 @@ router.put(
 router.get("/dashboard", asyncHandler(adminBackofficeController.getDashboard));
 router.get("/users", asyncHandler(adminBackofficeController.listUsers));
 router.get("/payments", asyncHandler(adminBackofficeController.listPayments));
+router.get("/driver-withdrawals", asyncHandler(adminBackofficeController.listDriverWithdrawals));
+router.put("/driver-withdrawals/:id/approve", asyncHandler(adminBackofficeController.approveDriverWithdrawal));
+router.put("/driver-withdrawals/:id/reject", asyncHandler(adminBackofficeController.rejectDriverWithdrawal));
 router.get(
   "/payments/settings",
   asyncHandler(adminPaymentSettingsController.getCurrent),

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { paymentOrchestrator } from "../../payments/application/PaymentOrchestrator";
 import { paymentWebhookProcessor } from "../../payments/application/PaymentWebhookProcessor";
 import Ride from "../../models/Ride";
+import { driverWalletService } from "../services/driverWalletService";
 
 function handleError(res: Response, error: unknown, fallbackMessage: string) {
   const typed = error as Error & {
@@ -221,6 +222,11 @@ export const paymentV2Controller = {
 
   async handleAsaasWebhook(req: Request, res: Response) {
     try {
+      if (String(req.body?.event || "").toUpperCase().startsWith("TRANSFER_")) {
+        const payload = await driverWalletService.handleAsaasTransferWebhook(req.body || {});
+        res.status(200).json({ success: true, ...payload });
+        return;
+      }
       const payload = await paymentWebhookProcessor.process("asaas", req.body || {});
       res.status(200).json({
         success: true,

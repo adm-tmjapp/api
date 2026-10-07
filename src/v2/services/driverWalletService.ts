@@ -4,6 +4,8 @@ import ApiIdempotencyKey from "../../models/ApiIdempotencyKey";
 import DriverTransfer from "../../models/DriverTransfer";
 import DriverWallet from "../../models/DriverWallet";
 import WalletLedgerEntry, { WalletLedgerType } from "../../models/WalletLedgerEntry";
+import User from "../../models/User";
+import { AsaasTransferProvider } from "../../payments/providers/asaas/AsaasTransferProvider";
 
 type WalletPeriod = "today" | "week" | "month";
 
@@ -135,6 +137,90 @@ function hashCpf(cpf: string): string {
   return crypto.createHash("sha256").update(cpf).digest("hex");
 }
 
+type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+
+function encryptionKey(): Buffer {
+  return crypto
+    .createHash("sha256")
+    .update(String(process.env.DRIVER_PIX_ENCRYPTION_KEY || process.env.JWT_SECRET || process.env.ASAAS_API_KEY || "tmjapp-driver-pix"))
+    .digest();
+}
+
+function encryptPixKey(value: string): string {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return [iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), encrypted.toString("base64url")].join(".");
+}
+
+function decryptPixKey(value: string): string {
+  const [ivRaw, tagRaw, encryptedRaw] = value.split(".");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(ivRaw, "base64url"));
+  decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(encryptedRaw, "base64url")), decipher.final()]).toString("utf8");
+}
+
+function normalizePixKeyType(value: unknown): PixKeyType {
+  const type = String(value || "CPF").trim().toUpperCase();
+  if (!["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"].includes(type)) {
+    throw new DriverWalletServiceError(400, "INVALID_CPF", "Tipo de chave PIX inválido.");
+  }
+  return type as PixKeyType;
+}
+
+function normalizePixKey(value: unknown, type: PixKeyType): string {
+  const key = String(value || "").trim();
+  if (!key) throw new DriverWalletServiceError(400, "INVALID_CPF", "Chave PIX é obrigatória.");
+  if (type === "CPF") return ensureValidCpf(key);
+  if (type === "CNPJ") {
+    const digits = digitsOnly(key);
+    if (digits.length !== 14) throw new DriverWalletServiceError(400, "INVALID_CPF", "CNPJ inválido.");
+    return digits;
+  }
+  if (type === "PHONE") {
+    const digits = digitsOnly(key);
+    if (digits.length !== 11) throw new DriverWalletServiceError(400, "INVALID_CPF", "Telefone PIX inválido.");
+    return digits;
+  }
+  if (type === "EMAIL" && !/^\S+@\S+\.\S+$/.test(key)) {
+    throw new DriverWalletServiceError(400, "INVALID_CPF", "E-mail PIX inválido.");
+  }
+  return key;
+}
+
+function maskPixKey(value: string, type: PixKeyType): string {
+  if (type === "CPF") return maskCpf(value);
+  if (type === "CNPJ") return `${value.slice(0, 2)}.***.***/****-${value.slice(-2)}`;
+  if (type === "EMAIL") {
+    const [name, domain] = value.split("@");
+    return `${name.slice(0, 2)}***@${domain}`;
+  }
+  if (type === "PHONE") return `(${value.slice(0, 2)}) *****-${value.slice(-4)}`;
+  return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
+
+function publicTransfer(transfer: any) {
+  return {
+    id: String(transfer._id),
+    method: transfer.method,
+    pixKeyType: transfer.pixKeyType || "CPF",
+    pixKeyMasked: transfer.pixKeyMasked || transfer.cpfMasked,
+    cpfMasked: transfer.cpfMasked,
+    amount: transfer.amount,
+    status: transfer.status,
+    providerTxId: transfer.providerTxId || null,
+    providerStatus: transfer.providerStatus || null,
+    receiptUrl: transfer.providerReceiptUrl || transfer.receiptUrl || null,
+    failureReason: transfer.failureReason || null,
+    rejectionReason: transfer.rejectionReason || null,
+    createdAt: transfer.createdAt,
+    updatedAt: transfer.updatedAt,
+    reviewedAt: transfer.reviewedAt || null,
+    completedAt: transfer.completedAt || null,
+    failedAt: transfer.failedAt || null,
+  };
+}
+
 function buildReceiptUrl(transferId: string): string {
   const apiBase =
     process.env.API_PUBLIC_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
@@ -249,9 +335,9 @@ export const driverWalletService = {
     };
   },
 
-  async createPixTransfer(
+  async requestWithdrawal(
     driverUserId: string,
-    payload: { cpf: string; amount: unknown },
+    payload: { cpf?: string; pixKey?: string; pixKeyType?: unknown; amount: unknown },
     idempotencyKey?: string,
   ) {
     if (!idempotencyKey || !idempotencyKey.trim()) {
@@ -280,9 +366,12 @@ export const driverWalletService = {
       );
     }
 
-    const cpf = ensureValidCpf(payload.cpf);
-    const cpfMasked = maskCpf(cpf);
-    const cpfHash = hashCpf(cpf);
+    const pixKeyType = normalizePixKeyType(payload.pixKeyType || "CPF");
+    const pixKey = normalizePixKey(payload.pixKey || payload.cpf, pixKeyType);
+    const pixKeyMasked = maskPixKey(pixKey, pixKeyType);
+    const cpf = pixKeyType === "CPF" ? pixKey : "";
+    const cpfMasked = pixKeyType === "CPF" ? pixKeyMasked : "***";
+    const cpfHash = hashCpf(pixKey);
     const amount = normalizeAmount(payload.amount);
 
     const session = await mongoose.startSession();
@@ -327,6 +416,7 @@ export const driverWalletService = {
 
         const nextBalance = Number((wallet.availableBalance - amount).toFixed(2));
         wallet.availableBalance = nextBalance;
+        wallet.pendingBalance = Number(((wallet.pendingBalance || 0) + amount).toFixed(2));
         wallet.updatedAt = new Date();
         await wallet.save({ session });
 
@@ -335,29 +425,26 @@ export const driverWalletService = {
             {
               driverUserId,
               method: "PIX_CPF",
+              pixKeyType,
+              pixKeyMasked,
+              pixKeyEncrypted: encryptPixKey(pixKey),
               cpfMasked,
               cpfHash,
               amount,
-              status: "COMPLETED",
-              providerTxId: `pix_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              status: "REQUESTED",
               createdAt: new Date(),
               updatedAt: new Date(),
-              completedAt: new Date(),
             },
           ],
           { session },
         );
 
         const transferDoc: any = transfer[0];
-        const receiptUrl = buildReceiptUrl(String(transferDoc._id));
-        transferDoc.receiptUrl = receiptUrl;
-        await transferDoc.save({ session });
-
         await WalletLedgerEntry.create(
           [
             {
               driverUserId,
-              type: "PIX_TRANSFER_DEBIT",
+              type: "PIX_TRANSFER_HOLD",
               amount: Number((-amount).toFixed(2)),
               balanceAfter: nextBalance,
               referenceType: "TRANSFER",
@@ -373,7 +460,7 @@ export const driverWalletService = {
           transferId: String(transferDoc._id),
           status: transferDoc.status,
           createdAt: transferDoc.createdAt,
-          receiptUrl,
+          receiptUrl: null,
         };
 
         await ApiIdempotencyKey.findOneAndUpdate(
@@ -442,6 +529,169 @@ export const driverWalletService = {
     }
   },
 
+  async createPixTransfer(
+    driverUserId: string,
+    payload: { cpf?: string; pixKey?: string; pixKeyType?: unknown; amount: unknown },
+    idempotencyKey?: string,
+  ) {
+    return this.requestWithdrawal(driverUserId, payload, idempotencyKey);
+  },
+
+  async listDriverTransfers(driverUserId: string, status?: string) {
+    const query: any = { driverUserId };
+    if (status) query.status = status;
+    const transfers = await DriverTransfer.find(query).sort({ createdAt: -1 }).limit(100).lean();
+    return { success: true, items: transfers.map(publicTransfer) };
+  },
+
+  async listAdminTransfers(input: { status?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, Number(input.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(input.limit || 20)));
+    const query: any = {};
+    if (input.status) query.status = input.status;
+    const [items, total] = await Promise.all([
+      DriverTransfer.find(query)
+        .populate("driverUserId", "name email phone")
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      DriverTransfer.countDocuments(query),
+    ]);
+    return {
+      success: true,
+      items: items.map((item: any) => ({
+        ...publicTransfer(item),
+        driver: item.driverUserId
+          ? { id: String(item.driverUserId._id), name: item.driverUserId.name, email: item.driverUserId.email, phone: item.driverUserId.phone }
+          : null,
+      })),
+      page,
+      limit,
+      total,
+    };
+  },
+
+  async rejectWithdrawal(transferId: string, adminUserId: string, reason: string) {
+    if (!mongoose.Types.ObjectId.isValid(transferId)) throw new DriverWalletServiceError(400, "INVALID_TRANSFER_ID", "Transfer ID inválido.");
+    if (!reason?.trim()) throw new DriverWalletServiceError(400, "INVALID_AMOUNT", "Informe o motivo da rejeição.");
+    const session = await mongoose.startSession();
+    try {
+      let transfer: any;
+      await session.withTransaction(async () => {
+        transfer = await DriverTransfer.findOne({ _id: transferId, status: "REQUESTED" }).session(session);
+        if (!transfer) throw new DriverWalletServiceError(409, "TRANSFER_NOT_FOUND", "Solicitação não está pendente.");
+        const wallet = await DriverWallet.findOneAndUpdate(
+          { driverUserId: transfer.driverUserId },
+          { $inc: { availableBalance: transfer.amount, pendingBalance: -transfer.amount }, $set: { updatedAt: new Date() } },
+          { new: true, session },
+        );
+        transfer.status = "REJECTED";
+        transfer.rejectionReason = reason.trim();
+        transfer.reviewedBy = adminUserId;
+        transfer.reviewedAt = new Date();
+        transfer.updatedAt = new Date();
+        await transfer.save({ session });
+        await WalletLedgerEntry.create([{
+          driverUserId: transfer.driverUserId,
+          type: "PIX_TRANSFER_RELEASE",
+          amount: transfer.amount,
+          balanceAfter: wallet?.availableBalance || 0,
+          referenceType: "TRANSFER",
+          referenceId: String(transfer._id),
+        }], { session });
+      });
+      return { success: true, transfer: publicTransfer(transfer) };
+    } finally { await session.endSession(); }
+  },
+
+  async approveWithdrawal(transferId: string, adminUserId: string) {
+    if (!mongoose.Types.ObjectId.isValid(transferId)) throw new DriverWalletServiceError(400, "INVALID_TRANSFER_ID", "Transfer ID inválido.");
+    const transfer: any = await DriverTransfer.findOneAndUpdate(
+      { _id: transferId, status: "REQUESTED" },
+      { $set: { status: "APPROVED", reviewedBy: adminUserId, reviewedAt: new Date(), updatedAt: new Date() } },
+      { new: true },
+    );
+    if (!transfer) throw new DriverWalletServiceError(409, "TRANSFER_NOT_FOUND", "Solicitação não está pendente.");
+    try {
+      const provider = new AsaasTransferProvider();
+      const result = await provider.createPixTransfer({
+        value: transfer.amount,
+        pixAddressKey: decryptPixKey(transfer.pixKeyEncrypted),
+        pixAddressKeyType: transfer.pixKeyType,
+        externalReference: String(transfer._id),
+      });
+      const updated: any = await DriverTransfer.findOneAndUpdate(
+        { _id: transfer._id, status: "APPROVED" },
+        { $set: { status: "PROCESSING", providerTxId: result.id, providerStatus: result.status || "PENDING", providerReceiptUrl: result.transactionReceiptUrl, updatedAt: new Date() } },
+        { new: true },
+      );
+      return { success: true, transfer: publicTransfer(updated || transfer) };
+    } catch (error: any) {
+      await this.releaseFailedTransfer(String(transfer._id), error?.message || "Falha ao solicitar transferência no ASAAS.");
+      throw error;
+    }
+  },
+
+  async releaseFailedTransfer(transferId: string, reason: string) {
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const transfer: any = await DriverTransfer.findOne({ _id: transferId, status: { $in: ["APPROVED", "PROCESSING"] } }).session(session);
+        if (!transfer) return;
+        const wallet = await DriverWallet.findOneAndUpdate(
+          { driverUserId: transfer.driverUserId },
+          { $inc: { availableBalance: transfer.amount, pendingBalance: -transfer.amount }, $set: { updatedAt: new Date() } },
+          { new: true, session },
+        );
+        transfer.status = "FAILED";
+        transfer.failureReason = reason;
+        transfer.failedAt = new Date();
+        transfer.updatedAt = new Date();
+        await transfer.save({ session });
+        await WalletLedgerEntry.create([{
+          driverUserId: transfer.driverUserId,
+          type: "PIX_TRANSFER_RELEASE",
+          amount: transfer.amount,
+          balanceAfter: wallet?.availableBalance || 0,
+          referenceType: "TRANSFER",
+          referenceId: String(transfer._id),
+        }], { session });
+      });
+    } finally { await session.endSession(); }
+  },
+
+  async handleAsaasTransferWebhook(payload: Record<string, any>) {
+    const eventId = String(payload.id || "").trim();
+    const providerTransferId = String(payload.transfer?.id || "").trim();
+    if (!providerTransferId) return { ignored: true };
+    const transfer: any = await DriverTransfer.findOne({ providerTxId: providerTransferId });
+    if (!transfer) return { ignored: true };
+    const event = String(payload.event || "").toUpperCase();
+    if (!["TRANSFER_DONE", "TRANSFER_FAILED", "TRANSFER_CANCELLED", "TRANSFER_PENDING", "TRANSFER_IN_BANK_PROCESSING", "TRANSFER_BLOCKED"].includes(event)) return { ignored: true };
+    if (event === "TRANSFER_DONE") {
+      const session = await mongoose.startSession();
+      try { await session.withTransaction(async () => {
+        const current: any = await DriverTransfer.findOne({ _id: transfer._id, status: { $in: ["PROCESSING", "APPROVED"] } }).session(session);
+        if (!current) return;
+        const wallet = await DriverWallet.findOneAndUpdate({ driverUserId: current.driverUserId }, { $inc: { pendingBalance: -current.amount }, $set: { updatedAt: new Date() } }, { new: true, session });
+        current.status = "COMPLETED";
+        current.providerStatus = "DONE";
+        current.providerReceiptUrl = payload.transfer?.transactionReceiptUrl || null;
+        current.completedAt = new Date();
+        current.updatedAt = new Date();
+        await current.save({ session });
+        await WalletLedgerEntry.updateOne({ referenceType: "TRANSFER", referenceId: String(current._id), type: "PIX_TRANSFER_HOLD" }, { $set: { type: "PIX_TRANSFER_DEBIT" } }, { session });
+        void wallet;
+      }); } finally { await session.endSession(); }
+    } else if (["TRANSFER_FAILED", "TRANSFER_CANCELLED"].includes(event)) {
+      await this.releaseFailedTransfer(String(transfer._id), String(payload.transfer?.failReason || event));
+    } else {
+      await DriverTransfer.updateOne({ _id: transfer._id }, { $set: { providerStatus: payload.transfer?.status || event, updatedAt: new Date() } });
+    }
+    return { ignored: false, eventId };
+  },
+
   async getTransfer(driverUserId: string, transferId: string) {
     if (!mongoose.Types.ObjectId.isValid(transferId)) {
       throw new DriverWalletServiceError(
@@ -464,23 +714,7 @@ export const driverWalletService = {
       );
     }
 
-    return {
-      success: true,
-      transfer: {
-        id: String((transfer as any)._id),
-        method: transfer.method,
-        cpfMasked: transfer.cpfMasked,
-        amount: transfer.amount,
-        status: transfer.status,
-        providerTxId: transfer.providerTxId || null,
-        receiptUrl: transfer.receiptUrl || null,
-        failureReason: transfer.failureReason || null,
-        createdAt: transfer.createdAt,
-        updatedAt: transfer.updatedAt,
-        completedAt: transfer.completedAt || null,
-        failedAt: transfer.failedAt || null,
-      },
-    };
+    return { success: true, transfer: publicTransfer(transfer) };
   },
 
   async getTransferReceipt(driverUserId: string, transferId: string) {
@@ -497,4 +731,3 @@ export const driverWalletService = {
     };
   },
 };
-

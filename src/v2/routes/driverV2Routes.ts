@@ -276,6 +276,16 @@ router.get(
 );
 
 router.post(
+  "/wallet/withdrawals",
+  asyncHandler(driverWalletController.createPixTransfer),
+);
+
+router.get(
+  "/wallet/withdrawals",
+  asyncHandler(driverWalletController.listTransfers),
+);
+
+router.post(
   "/wallet/transfers/pix",
   asyncHandler(driverWalletController.createPixTransfer),
 );

@@ -98,16 +98,30 @@ export const driverWalletController = {
             ? idempotencyKey[0]
             : undefined;
 
-      const payload = await driverWalletService.createPixTransfer(
+      const payload = await driverWalletService.requestWithdrawal(
         driverUserId,
         {
           cpf: req.body?.cpf,
+          pixKey: req.body?.pixKey,
+          pixKeyType: req.body?.pixKeyType,
           amount: req.body?.amount,
         },
         idempotency,
       );
 
       res.status(201).json(payload);
+    } catch (error) {
+      handleError(req, res, error);
+    }
+  },
+
+  async listTransfers(req: Request, res: Response) {
+    try {
+      const payload = await driverWalletService.listDriverTransfers(
+        req.user?.id as string,
+        typeof req.query.status === "string" ? req.query.status : undefined,
+      );
+      res.status(200).json(payload);
     } catch (error) {
       handleError(req, res, error);
     }
@@ -138,4 +152,3 @@ export const driverWalletController = {
     }
   },
 };
-

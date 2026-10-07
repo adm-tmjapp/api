@@ -4,6 +4,8 @@ export type WalletLedgerType =
   | "RIDE_CREDIT"
   | "BONUS"
   | "PIX_TRANSFER_DEBIT"
+  | "PIX_TRANSFER_HOLD"
+  | "PIX_TRANSFER_RELEASE"
   | "ADJUSTMENT";
 
 export interface IWalletLedgerEntry extends Document {
@@ -25,7 +27,14 @@ const WalletLedgerEntrySchema = new Schema<IWalletLedgerEntry>({
   },
   type: {
     type: String,
-    enum: ["RIDE_CREDIT", "BONUS", "PIX_TRANSFER_DEBIT", "ADJUSTMENT"],
+    enum: [
+      "RIDE_CREDIT",
+      "BONUS",
+      "PIX_TRANSFER_DEBIT",
+      "PIX_TRANSFER_HOLD",
+      "PIX_TRANSFER_RELEASE",
+      "ADJUSTMENT",
+    ],
     required: true,
     index: true,
   },
@@ -60,4 +69,3 @@ export default mongoose.model<IWalletLedgerEntry>(
   "WalletLedgerEntry",
   WalletLedgerEntrySchema,
 );
-

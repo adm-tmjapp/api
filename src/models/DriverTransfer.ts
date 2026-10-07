@@ -1,10 +1,20 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-export type DriverTransferStatus = "PENDING" | "COMPLETED" | "FAILED";
+export type DriverTransferStatus =
+  | "REQUESTED"
+  | "APPROVED"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "REJECTED"
+  | "FAILED"
+  | "CANCELLED";
 
 export interface IDriverTransfer extends Document {
   driverUserId: mongoose.Types.ObjectId;
   method: "PIX_CPF";
+  pixKeyType: "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+  pixKeyMasked: string;
+  pixKeyEncrypted: string;
   cpfMasked: string;
   cpfHash: string;
   amount: number;
@@ -12,6 +22,11 @@ export interface IDriverTransfer extends Document {
   providerTxId?: string | null;
   receiptUrl?: string | null;
   failureReason?: string | null;
+  rejectionReason?: string | null;
+  reviewedBy?: mongoose.Types.ObjectId | null;
+  reviewedAt?: Date | null;
+  providerStatus?: string | null;
+  providerReceiptUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date | null;
@@ -31,6 +46,22 @@ const DriverTransferSchema = new Schema<IDriverTransfer>({
     required: true,
     default: "PIX_CPF",
   },
+  pixKeyType: {
+    type: String,
+    enum: ["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"],
+    default: "CPF",
+    required: true,
+  },
+  pixKeyMasked: {
+    type: String,
+    required: true,
+    default: "***",
+  },
+  pixKeyEncrypted: {
+    type: String,
+    required: true,
+    default: "",
+  },
   cpfMasked: {
     type: String,
     required: true,
@@ -46,9 +77,17 @@ const DriverTransferSchema = new Schema<IDriverTransfer>({
   },
   status: {
     type: String,
-    enum: ["PENDING", "COMPLETED", "FAILED"],
+    enum: [
+      "REQUESTED",
+      "APPROVED",
+      "PROCESSING",
+      "COMPLETED",
+      "REJECTED",
+      "FAILED",
+      "CANCELLED",
+    ],
     required: true,
-    default: "PENDING",
+    default: "REQUESTED",
     index: true,
   },
   providerTxId: {
@@ -60,6 +99,27 @@ const DriverTransferSchema = new Schema<IDriverTransfer>({
     default: null,
   },
   failureReason: {
+    type: String,
+    default: null,
+  },
+  rejectionReason: {
+    type: String,
+    default: null,
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+  reviewedAt: {
+    type: Date,
+    default: null,
+  },
+  providerStatus: {
+    type: String,
+    default: null,
+  },
+  providerReceiptUrl: {
     type: String,
     default: null,
   },
@@ -84,9 +144,10 @@ const DriverTransferSchema = new Schema<IDriverTransfer>({
 });
 
 DriverTransferSchema.index({ driverUserId: 1, createdAt: -1 });
+DriverTransferSchema.index({ status: 1, createdAt: -1 });
+DriverTransferSchema.index({ providerTxId: 1 }, { sparse: true });
 
 export default mongoose.model<IDriverTransfer>(
   "DriverTransfer",
   DriverTransferSchema,
 );
-
