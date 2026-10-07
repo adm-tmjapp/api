@@ -37,18 +37,6 @@ jobs:
       - name: Configure Docker authentication
         run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
-      - name: Synchronize payment integration secrets
-        env:
-          ASAAS_WEBHOOK_TOKEN: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
-          DRIVER_PIX_ENCRYPTION_KEY: ${{ secrets.DRIVER_PIX_ENCRYPTION_KEY }}
-        run: |
-          for secret_name in tmjapp-asaas-webhook-token tmjapp-driver-pix-encryption-key; do
-            gcloud secrets describe "$secret_name" --project "$PROJECT_ID" >/dev/null 2>&1 || \
-              gcloud secrets create "$secret_name" --project "$PROJECT_ID" --replication-policy="automatic"
-          done
-          printf '%s' "$ASAAS_WEBHOOK_TOKEN" | gcloud secrets versions add tmjapp-asaas-webhook-token --project "$PROJECT_ID" --data-file=-
-          printf '%s' "$DRIVER_PIX_ENCRYPTION_KEY" | gcloud secrets versions add tmjapp-driver-pix-encryption-key --project "$PROJECT_ID" --data-file=-
-
       - name: Build image
         run: |
           docker build \
@@ -76,5 +64,5 @@ jobs:
             --concurrency 80 \
             --timeout 60s \
             --port 8080 \
-            --set-env-vars NODE_ENV=production,GCS_BUCKET_NAME=tmjapp-api-uploads \
+            --set-env-vars NODE_ENV=production,GCS_BUCKET_NAME=tmjapp-api-uploads,ASAAS_WEBHOOK_TOKEN=${{ secrets.ASAAS_WEBHOOK_TOKEN }},DRIVER_PIX_ENCRYPTION_KEY=${{ secrets.DRIVER_PIX_ENCRYPTION_KEY }} \
             --update-secrets MONGO_URI=tmjapp-mongo-uri:latest,JWT_SECRET=tmjapp-jwt-secret:latest,MAIL_FROM=tmjapp-mail-from:latest,MAIL_HOST=tmjapp-mail-host:latest,MAIL_PORT=tmjapp-mail-port:latest,MAIL_USER=tmjapp-mail-user:latest,MAIL_PASS=tmjapp-mail-pass:latest,AWS_ACCESS_KEY_ID=tmjapp-aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=tmjapp-aws-secret-access-key:latest,AWS_REGION=tmjapp-aws-region:latest,AWS_S3_BUCKET_NAME=tmjapp-aws-s3-bucket-name:latest,FIREBASE_SERVICE_ACCOUNT_JSON=tmjapp-firebase-service-account-json:latest,FIREBASE_DATABASE_URL=tmjapp-firebase-database-url:latest,ASAAS_API_KEY=tmjapp-asaas-api-key:latest,ASAAS_BASE_URL=tmjapp-asaas-base-url:latest,ASAAS_WEBHOOK_TOKEN=tmjapp-asaas-webhook-token:latest,DRIVER_PIX_ENCRYPTION_KEY=tmjapp-driver-pix-encryption-key:latest,SWAGGER_ACCESS_CODE=tmjapp-swagger-access-code:latest,API_PUBLIC_BASE_URL=tmjapp-api-public-base-url:latest
