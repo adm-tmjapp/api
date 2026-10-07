@@ -345,12 +345,21 @@ export const paymentOrchestrator = {
     };
     const existing = await PassengerCardPaymentAttempt.findOne(filter).lean();
 
+    const attemptTimeoutMs = Number(
+      process.env.PAYMENT_ATTEMPT_TIMEOUT_MS || 5 * 60 * 1000,
+    );
+    const attemptIsStale =
+      existing?.status === "PROCESSING" &&
+      existing.updatedAt.getTime() < Date.now() - attemptTimeoutMs;
+
     if (existing?.status === "COMPLETED" && existing.paymentId) {
       const payment = await RidePayment.findById(existing.paymentId);
       if (payment && ["PENDING", "AUTHORIZED", "PAID"].includes(payment.status)) {
         return { attemptId: String(existing._id), payment };
       }
 
+      await PassengerCardPaymentAttempt.deleteOne({ _id: existing._id });
+    } else if (existing?.status === "PROCESSING" && attemptIsStale) {
       await PassengerCardPaymentAttempt.deleteOne({ _id: existing._id });
     } else if (existing?.status === "PROCESSING") {
       const error = new Error("Já existe um pagamento em processamento para esta corrida.") as Error & {
@@ -503,14 +512,22 @@ export const paymentOrchestrator = {
       throw error;
     }
 
-    const providerCharge = await provider.createCardCharge({
-      providerCustomerId: gatewayCustomer.providerCustomerId,
-      providerPaymentMethodToken,
-      externalReference: input.rideId,
-      amount: input.amount,
-      description: input.description,
-      remoteIp: input.remoteIp,
-    });
+    const externalReference = `tmjapp-card:${input.rideId}`;
+    const existingProviderCharge =
+      await provider.findPaymentByExternalReference({
+        providerCustomerId: gatewayCustomer.providerCustomerId,
+        externalReference,
+      });
+    const providerCharge =
+      existingProviderCharge ||
+      (await provider.createCardCharge({
+        providerCustomerId: gatewayCustomer.providerCustomerId,
+        providerPaymentMethodToken,
+        externalReference,
+        amount: input.amount,
+        description: input.description,
+        remoteIp: input.remoteIp,
+      }));
 
     const payment = await RidePayment.create({
       rideId: new mongoose.Types.ObjectId(input.rideId),

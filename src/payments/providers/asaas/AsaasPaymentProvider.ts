@@ -3,6 +3,7 @@ import {
   PaymentProvider,
   PaymentProviderCreateCardChargeInput,
   PaymentProviderCreateCardChargeResult,
+  PaymentProviderFindPaymentInput,
   PaymentProviderCreatePixInput,
   PaymentProviderCreatePixResult,
   PaymentProviderCustomerInput,
@@ -61,7 +62,14 @@ function normalizeAsaasStatus(status?: string): PaymentEventStatus {
 
 async function parseAsaasResponse(response: Response) {
   const text = await response.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: Record<string, unknown> = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as Record<string, unknown>;
+    } catch (_) {
+      data = { raw: text.slice(0, 500) };
+    }
+  }
 
   if (!response.ok) {
     throw new AsaasApiError(
@@ -222,6 +230,36 @@ export class AsaasPaymentProvider implements PaymentProvider {
         ? String(raw.transactionReceiptUrl)
         : null,
       raw,
+    };
+  }
+
+  async findPaymentByExternalReference(
+    input: PaymentProviderFindPaymentInput,
+  ): Promise<PaymentProviderCreateCardChargeResult | null> {
+    const query = new URLSearchParams({
+      externalReference: input.externalReference,
+      limit: "100",
+    });
+    const raw = await this.request(`/payments?${query.toString()}`);
+    const items = Array.isArray(raw.data) ? raw.data : [];
+    const payment = items.find((item) => {
+      const candidate = item as Record<string, unknown>;
+      return (
+        String(candidate.customer || "") === input.providerCustomerId &&
+        String(candidate.billingType || "").toUpperCase() === "CREDIT_CARD"
+      );
+    }) as Record<string, unknown> | undefined;
+
+    if (!payment?.id) return null;
+
+    return {
+      providerPaymentId: String(payment.id),
+      status: normalizeAsaasStatus(String(payment.status || "")),
+      invoiceUrl: payment.invoiceUrl ? String(payment.invoiceUrl) : null,
+      receiptUrl: payment.transactionReceiptUrl
+        ? String(payment.transactionReceiptUrl)
+        : null,
+      raw: payment,
     };
   }
 

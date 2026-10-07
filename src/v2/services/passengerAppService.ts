@@ -597,6 +597,14 @@ export const passengerAppService = {
       );
     }
 
+    if (type === "card") {
+      throw new PassengerAppServiceError(
+        422,
+        "VALIDATION_ERROR",
+        "Cartões devem ser cadastrados pelo fluxo seguro de tokenização.",
+      );
+    }
+
     const payload: any = {
       passengerUserId: toObjectId(passengerUserId),
       type,

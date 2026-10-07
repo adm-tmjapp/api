@@ -35,16 +35,37 @@ export const paymentWebhookProcessor = {
         })
       : null;
 
-    const storedEvent = await RidePaymentEvent.create({
-      ridePaymentId: ridePayment?._id || null,
-      provider: provider.name,
-      providerEvent: event.providerEvent,
-      providerPaymentId: event.providerPaymentId || null,
-      providerEventId: event.providerEventId || null,
-      payload: event.raw,
-      processed: true,
-      processedAt: new Date(),
-    });
+    let storedEvent;
+    try {
+      storedEvent = await RidePaymentEvent.create({
+        ridePaymentId: ridePayment?._id || null,
+        provider: provider.name,
+        providerEvent: event.providerEvent,
+        providerPaymentId: event.providerPaymentId || null,
+        providerEventId: event.providerEventId || null,
+        payload: event.raw,
+        processed: true,
+        processedAt: new Date(),
+      });
+    } catch (error: any) {
+      if (error?.code !== 11000 || !event.providerEventId) throw error;
+      const duplicateEvent = await RidePaymentEvent.findOne({
+        provider: provider.name,
+        providerEventId: event.providerEventId,
+      });
+      if (!duplicateEvent) throw error;
+      return {
+        event: duplicateEvent,
+        ridePayment: event.providerPaymentId
+          ? await RidePayment.findOne({
+              provider: provider.name,
+              providerPaymentId: event.providerPaymentId,
+            })
+          : null,
+        normalizedStatus: event.status,
+        duplicate: true,
+      };
+    }
 
     if (ridePayment) {
       ridePayment.status = event.status;

@@ -63,6 +63,15 @@ const RidePaymentEventSchema = new Schema<IRidePaymentEvent>(
   },
 );
 
+RidePaymentEventSchema.index(
+  { provider: 1, providerEventId: 1 },
+  {
+    unique: true,
+    sparse: true,
+    name: "uniq_provider_event_id",
+  },
+);
+
 export default mongoose.model<IRidePaymentEvent>(
   "RidePaymentEvent",
   RidePaymentEventSchema,

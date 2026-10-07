@@ -75,6 +75,11 @@ export type PaymentProviderCreateCardChargeResult = {
   raw: Record<string, unknown>;
 };
 
+export type PaymentProviderFindPaymentInput = {
+  providerCustomerId: string;
+  externalReference: string;
+};
+
 export type PaymentProviderWebhookEvent = {
   provider: PaymentProviderName;
   providerEvent: string;
@@ -104,6 +109,10 @@ export interface PaymentProvider {
   createCardCharge(
     input: PaymentProviderCreateCardChargeInput,
   ): Promise<PaymentProviderCreateCardChargeResult>;
+
+  findPaymentByExternalReference(
+    input: PaymentProviderFindPaymentInput,
+  ): Promise<PaymentProviderCreateCardChargeResult | null>;
 
   cancelPayment(providerPaymentId: string): Promise<void>;
 
