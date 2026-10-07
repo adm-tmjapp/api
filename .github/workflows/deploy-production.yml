@@ -51,10 +51,6 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run services update "${SERVICE}" \
-            --project "${PROJECT_ID}" \
-            --region "${REGION}" \
-            --remove-secrets ASAAS_WEBHOOK_TOKEN
           gcloud run deploy "${SERVICE}" \
             --project "${PROJECT_ID}" \
             --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${SERVICE}:${GITHUB_SHA}" \
