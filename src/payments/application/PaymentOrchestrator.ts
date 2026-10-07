@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import PaymentGatewayCustomer from "../../models/PaymentGatewayCustomer";
 import PassengerPaymentMethod from "../../models/PassengerPaymentMethod";
+import PassengerCardPaymentAttempt from "../../models/PassengerCardPaymentAttempt";
 import RidePayment from "../../models/RidePayment";
 import Ride from "../../models/Ride";
 import User from "../../models/User";
@@ -312,6 +313,73 @@ export const paymentOrchestrator = {
   },
 
   async createCardRidePayment(input: CreateCardPaymentInput) {
+    ensureValidObjectId(input.rideId, "Ride inválida.");
+    ensureValidObjectId(input.passengerId, "Passageiro inválido.");
+    const attempt = await this.acquireCardPaymentAttempt(input);
+
+    if (attempt.payment) {
+      return attempt.payment;
+    }
+
+    try {
+      const payment = await this.createCardRidePaymentUnsafe(input);
+      await PassengerCardPaymentAttempt.findByIdAndUpdate(attempt.attemptId, {
+        $set: {
+          status: "COMPLETED",
+          paymentId: payment._id,
+          updatedAt: new Date(),
+        },
+      });
+      return payment;
+    } catch (error) {
+      await PassengerCardPaymentAttempt.findByIdAndDelete(attempt.attemptId);
+      throw error;
+    }
+  },
+
+  async acquireCardPaymentAttempt(input: CreateCardPaymentInput) {
+    const filter = {
+      passengerUserId: new mongoose.Types.ObjectId(input.passengerId),
+      rideId: new mongoose.Types.ObjectId(input.rideId),
+      operation: "CARD_PAYMENT" as const,
+    };
+    const existing = await PassengerCardPaymentAttempt.findOne(filter).lean();
+
+    if (existing?.status === "COMPLETED" && existing.paymentId) {
+      const payment = await RidePayment.findById(existing.paymentId);
+      if (payment && ["PENDING", "AUTHORIZED", "PAID"].includes(payment.status)) {
+        return { attemptId: String(existing._id), payment };
+      }
+
+      await PassengerCardPaymentAttempt.deleteOne({ _id: existing._id });
+    } else if (existing?.status === "PROCESSING") {
+      const error = new Error("Já existe um pagamento em processamento para esta corrida.") as Error & {
+        statusCode?: number;
+        code?: string;
+      };
+      error.statusCode = 409;
+      error.code = "PAYMENT_IN_PROGRESS";
+      throw error;
+    }
+
+    try {
+      const created = await PassengerCardPaymentAttempt.create(filter);
+      return { attemptId: String(created._id), payment: null };
+    } catch (error: any) {
+      if (error?.code === 11000) {
+        const conflict = new Error("Já existe um pagamento em processamento para esta corrida.") as Error & {
+          statusCode?: number;
+          code?: string;
+        };
+        conflict.statusCode = 409;
+        conflict.code = "PAYMENT_IN_PROGRESS";
+        throw conflict;
+      }
+      throw error;
+    }
+  },
+
+  async createCardRidePaymentUnsafe(input: CreateCardPaymentInput) {
     ensureValidObjectId(input.rideId, "Ride inválida.");
     ensureValidObjectId(input.passengerId, "Passageiro inválido.");
 

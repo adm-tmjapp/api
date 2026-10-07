@@ -134,7 +134,16 @@ export const passengerAppController = {
   async listPaymentMethods(req: Request, res: Response) {
     try {
       const passengerUserId = req.user?.id as string;
-      const payload = await passengerAppService.listPaymentMethods(passengerUserId);
+      const type = typeof req.query.type === "string"
+        ? req.query.type.trim().toLowerCase()
+        : undefined;
+      const status = typeof req.query.status === "string"
+        ? req.query.status.trim().toUpperCase()
+        : undefined;
+      const payload = await passengerAppService.listPaymentMethods(passengerUserId, {
+        type,
+        status,
+      });
       res.status(200).json(payload);
     } catch (error) {
       handleError(res, error);

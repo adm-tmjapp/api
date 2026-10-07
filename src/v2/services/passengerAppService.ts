@@ -551,12 +551,21 @@ export const passengerAppService = {
     return payment;
   },
 
-  async listPaymentMethods(passengerUserId: string) {
+  async listPaymentMethods(
+    passengerUserId: string,
+    filters?: { type?: string; status?: string },
+  ) {
     await ensurePassenger(passengerUserId);
     await ensureDefaultPaymentMethod(passengerUserId);
 
-    const methods = await PassengerPaymentMethod.find({
+    const query: Record<string, unknown> = {
       passengerUserId: toObjectId(passengerUserId),
+    };
+    if (filters?.type) query.type = filters.type;
+    if (filters?.status) query.status = filters.status;
+
+    const methods = await PassengerPaymentMethod.find({
+      ...query,
     })
       .sort({ isDefault: -1, createdAt: -1 })
       .lean();
