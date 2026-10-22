@@ -60,8 +60,24 @@ router.get("/audit-logs", asyncHandler(adminBackofficeController.getAuditLogs));
 router.post(
   "/products",
   asyncHandler(async (req, res) => {
-    const { name, icon, taxaId } = req.body;
-    const product = await Product.create({ name, icon, taxaId });
+    const { name, icon, taxaId, active } = req.body;
+    if (active !== false && taxaId) {
+      const tarifa = await Tarifa.findById(taxaId).select("status");
+      if (!tarifa) {
+        res.status(400).json({ error: "A tarifa vinculada não foi encontrada." });
+        return;
+      }
+      if (tarifa.status === false) {
+        res.status(400).json({ error: "Ative a tarifa antes de publicar este tipo de viagem." });
+        return;
+      }
+    }
+    const product = await Product.create({
+      name,
+      icon,
+      taxaId,
+      active: active !== false,
+    });
     res.status(201).json(product);
   }),
 );
@@ -86,16 +102,33 @@ router.get(
 router.put(
   "/products/:id",
   asyncHandler(async (req, res) => {
-    const { name, icon, taxaId } = req.body;
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { name, icon, taxaId },
-      { new: true },
-    );
-    if (!product) {
+    const { name, icon, taxaId, active } = req.body;
+    const current = await Product.findById(req.params.id);
+    if (!current) {
       res.status(404).json({ error: "Produto não encontrado." });
       return;
     }
+    if (active !== false && taxaId) {
+      const tarifa = await Tarifa.findById(taxaId).select("status");
+      if (!tarifa) {
+        res.status(400).json({ error: "A tarifa vinculada não foi encontrada." });
+        return;
+      }
+      if (tarifa.status === false) {
+        res.status(400).json({ error: "Ative a tarifa antes de publicar este tipo de viagem." });
+        return;
+      }
+    }
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        name,
+        icon,
+        taxaId,
+        active: typeof active === "boolean" ? active : current.active !== false,
+      },
+      { new: true },
+    );
     res.json(product);
   }),
 );
@@ -153,17 +186,21 @@ router.put(
 router.delete(
   "/tarifas/:id",
   asyncHandler(async (req, res) => {
-    const tarifa = await Tarifa.findByIdAndDelete(req.params.id);
+    const tarifa = await Tarifa.findByIdAndUpdate(
+      req.params.id,
+      { status: false },
+      { new: true },
+    );
     if (!tarifa) {
       res.status(404).json({ error: "Tarifa não encontrada" });
       return;
     }
     await adminBackofficeService.logTarifaAction({
       adminUserId: req.user?.id,
-      action: "TARIFA_DELETE",
+      action: "TARIFA_DEACTIVATE",
       tarifaId: String(tarifa._id),
     });
-    res.json({ message: "Tarifa excluída com sucesso" });
+    res.json(tarifa);
   }),
 );
 

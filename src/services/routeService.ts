@@ -39,12 +39,15 @@ export function calculateDistanceAndDuration(
 export const getAvailableProducts = async (distanceKm: number) => {
   try {
     // Buscar todos os produtos, sem filtro de distância
-    const products = await Product.find({}).populate("taxaId");
+    const products = await Product.find({ active: { $ne: false } }).populate("taxaId");
 
     // Adicionar valores dos produtos (preço baseado na tarifa associada)
     const productsWithPrices = products
       .map((product: any) => {
         const tarifa = product.taxaId;
+        if (tarifa?.status === false) {
+          return null;
+        }
         if (!tarifa) {
           return {
             id: product._id,
@@ -78,6 +81,7 @@ export const getAvailableProducts = async (distanceKm: number) => {
           },
         };
       })
+      .filter((product: any) => product !== null)
       .sort((a: any, b: any) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
     return productsWithPrices;
