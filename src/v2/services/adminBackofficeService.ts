@@ -102,6 +102,15 @@ function toDateBucketIndex(date: Date, start: Date, end: Date) {
   return Math.min(6, Math.floor((normalized / totalMs) * 7));
 }
 
+function buildRevenueLabel(index: number, start: Date, end: Date) {
+  const duration = end.getTime() - start.getTime();
+  const bucketStart = new Date(start.getTime() + (duration * index) / 7);
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(bucketStart);
+}
+
 function mapAuthOnboardingStatus(payload: any) {
   if (!payload) return null;
   if (payload.isCompleted) return "COMPLETED";
@@ -247,11 +256,21 @@ export const adminBackofficeService = {
   },
 
   async getDashboard(period: AdminPeriod = "monthly") {
+    const normalizedPeriod: AdminPeriod = ["weekly", "biweekly", "monthly"].includes(period)
+      ? period
+      : "monthly";
     const now = new Date();
-    const start = getPeriodStart(period);
-    const previousStart = getPreviousPeriodStart(start, period);
+    const start = getPeriodStart(normalizedPeriod);
+    const previousStart = getPreviousPeriodStart(start, normalizedPeriod);
 
-    const [rides, activeDrivers, totalPassengers, pendingDocs, pendingVehicles] =
+    const [
+      rides,
+      activeDrivers,
+      totalPassengers,
+      newPassengers,
+      pendingDocs,
+      pendingVehicles,
+    ] =
       await Promise.all([
         Ride.find({
           status: "completed",
@@ -259,6 +278,10 @@ export const adminBackofficeService = {
         }).lean(),
         User.countDocuments({ role: "driver", authStatus: "ACTIVE" }),
         User.countDocuments({ role: "passenger" }),
+        User.countDocuments({
+          role: "passenger",
+          createdAt: { $gte: start, $lte: now },
+        }),
         DriverDocument.countDocuments({ status: "PENDING" }),
         Vehicle.countDocuments({
           $or: [{ status: "PENDING" }, { documentationStatus: { $in: ["PENDING", "UNDER_REVIEW"] } }],
@@ -299,15 +322,38 @@ export const adminBackofficeService = {
 
     return {
       success: true,
+      period: {
+        key: normalizedPeriod,
+        startDate: start.toISOString(),
+        endDate: now.toISOString(),
+        timezone: "America/Recife",
+      },
+      updatedAt: now.toISOString(),
       stats: {
         totalRevenue: Number(
           currentRides.reduce((sum: number, item: any) => sum + Number(item.fare?.total_amount || 0), 0).toFixed(2),
         ),
         activeDrivers,
         totalPassengers,
+        newPassengers,
+        completedRides: currentRides.length,
+        averageRideValue: currentRides.length
+          ? Number(
+              (
+                currentRides.reduce(
+                  (sum: number, item: any) =>
+                    sum + Number(item.fare?.total_amount || 0),
+                  0,
+                ) / currentRides.length
+              ).toFixed(2),
+            )
+          : 0,
         pendingApprovals: pendingDocs + pendingVehicles,
       },
-      revenueSeries: revenueSeries.map((value) => Number(value.toFixed(2))),
+      revenueSeries: revenueSeries.map((value, index) => ({
+        label: buildRevenueLabel(index, start, now),
+        value: Number(value.toFixed(2)),
+      })),
       pendingDrivers: pendingDrivers.map((doc: any) => ({
         id: String(doc._id),
         type: doc.type,
