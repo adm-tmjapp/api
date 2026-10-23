@@ -1,0 +1,123 @@
+import Ride from "../../models/Ride";
+import RideMessage, { RideMessageSenderRole } from "../../models/RideMessage";
+
+export class RideChatServiceError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly code: string,
+  ) {
+    super(message);
+  }
+}
+
+function participantField(role: RideMessageSenderRole): string {
+  return role === "driver" ? "driver.id" : "passengerId";
+}
+
+async function getRideForParticipant(
+  rideId: string,
+  userId: string,
+  role: RideMessageSenderRole,
+) {
+  if (!rideId || !userId) {
+    throw new RideChatServiceError(400, "Corrida inválida.", "INVALID_RIDE");
+  }
+
+  const ride = await Ride.findOne({
+    _id: rideId,
+    [participantField(role)]: userId,
+  }).lean();
+
+  if (!ride) {
+    throw new RideChatServiceError(
+      404,
+      "Corrida não encontrada ou sem permissão para acessar o chat.",
+      "RIDE_CHAT_FORBIDDEN",
+    );
+  }
+
+  if (!ride.status || ride.status === "pending") {
+    throw new RideChatServiceError(
+      409,
+      "O chat será liberado quando a corrida for aceita.",
+      "CHAT_NOT_AVAILABLE",
+    );
+  }
+
+  return ride;
+}
+
+function serializeMessage(message: any, currentUserId: string) {
+  return {
+    id: String(message._id),
+    rideId: String(message.rideId),
+    senderId: String(message.senderId),
+    senderRole: message.senderRole,
+    content: message.content,
+    isMine: String(message.senderId) === currentUserId,
+    readAt: message.readAt ?? null,
+    createdAt: message.createdAt,
+  };
+}
+
+export const rideChatService = {
+  async listMessages(
+    rideId: string,
+    userId: string,
+    role: RideMessageSenderRole,
+    limit = 50,
+  ) {
+    await getRideForParticipant(rideId, userId, role);
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const messages = await RideMessage.find({ rideId })
+      .sort({ createdAt: -1 })
+      .limit(safeLimit)
+      .lean();
+
+    return messages.reverse().map((message) => serializeMessage(message, userId));
+  },
+
+  async sendMessage(
+    rideId: string,
+    userId: string,
+    role: RideMessageSenderRole,
+    content: unknown,
+  ) {
+    await getRideForParticipant(rideId, userId, role);
+    const normalizedContent = typeof content === "string" ? content.trim() : "";
+
+    if (!normalizedContent) {
+      throw new RideChatServiceError(
+        400,
+        "Digite uma mensagem antes de enviar.",
+        "EMPTY_MESSAGE",
+      );
+    }
+    if (normalizedContent.length > 500) {
+      throw new RideChatServiceError(
+        400,
+        "A mensagem deve ter no máximo 500 caracteres.",
+        "MESSAGE_TOO_LONG",
+      );
+    }
+
+    const message = await RideMessage.create({
+      rideId,
+      senderId: userId,
+      senderRole: role,
+      content: normalizedContent,
+    });
+
+    return serializeMessage(message.toObject(), userId);
+  },
+
+  async markAsRead(rideId: string, userId: string, role: RideMessageSenderRole) {
+    await getRideForParticipant(rideId, userId, role);
+    await RideMessage.updateMany(
+      { rideId, senderId: { $ne: userId }, readAt: null },
+      { $set: { readAt: new Date() } },
+    );
+    return { success: true };
+  },
+};

@@ -17,6 +17,7 @@ import { driverProfileController } from "../controllers/driverProfileController"
 import { driverVehicleProfileController } from "../controllers/driverVehicleProfileController";
 import { driverLocationController } from "../controllers/driverLocationController";
 import { driverDeviceTokenController } from "../controllers/driverDeviceTokenController";
+import { createRideChatController } from "../controllers/rideChatController";
 
 const router = Router();
 const upload = multer({
@@ -39,6 +40,8 @@ router.put(
 // The Drive API is available to both driver accounts and admin test accounts.
 // Individual handlers still resolve the authenticated user's own resources.
 router.use(authMiddleware(["driver", "admin"]));
+
+const driverChatController = createRideChatController("driver");
 
 router.post(
   "/profile/register",
@@ -208,6 +211,12 @@ router.post(
 router.get(
   "/rides/current",
   asyncHandler(driverDashboardController.getCurrentRide),
+);
+router.get("/rides/:rideId/messages", asyncHandler(driverChatController.list));
+router.post("/rides/:rideId/messages", asyncHandler(driverChatController.send));
+router.patch(
+  "/rides/:rideId/messages/read",
+  asyncHandler(driverChatController.markRead),
 );
 
 router.post(

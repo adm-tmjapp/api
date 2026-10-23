@@ -4,11 +4,14 @@ import authMiddleware from "../../middlewares/authMiddleware";
 import { asyncHandler } from "../common/asyncHandler";
 import { passengerAppController } from "../controllers/passengerAppController";
 import { paymentV2Controller } from "../controllers/paymentV2Controller";
+import { createRideChatController } from "../controllers/rideChatController";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(authMiddleware("passenger"));
+
+const passengerChatController = createRideChatController("passenger");
 
 router.post("/rides/request", asyncHandler(passengerAppController.createRide));
 router.post("/rides", asyncHandler(passengerAppController.createRide));
@@ -22,6 +25,12 @@ router.post(
   asyncHandler(passengerAppController.issueRealtimeToken),
 );
 router.get("/rides/:id/eta", asyncHandler(passengerAppController.getRideEta));
+router.get("/rides/:rideId/messages", asyncHandler(passengerChatController.list));
+router.post("/rides/:rideId/messages", asyncHandler(passengerChatController.send));
+router.patch(
+  "/rides/:rideId/messages/read",
+  asyncHandler(passengerChatController.markRead),
+);
 
 router.post("/payments", asyncHandler(passengerAppController.createPayment));
 router.get(
