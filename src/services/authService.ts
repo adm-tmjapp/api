@@ -110,6 +110,20 @@ export class AuthService {
       authStatus: role === "driver" ? "PENDING_EMAIL" : "ACTIVE",
     });
 
+    // Start the driver's verification flow immediately after registration.
+    // Failure to send the e-mail must not invalidate an already-created user;
+    // the authenticated onboarding flow still provides a resend action.
+    if (role === "driver") {
+      try {
+        await EmailService.sendVerificationCode(String(user._id));
+      } catch (error) {
+        console.warn("[AuthService.register] verification e-mail not sent", {
+          userId: String(user._id),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     const token = this.generateToken(user);
     const authPayload = await this.buildAuthResponse(user);
 

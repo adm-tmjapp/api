@@ -91,6 +91,15 @@ export const adminBackofficeController = {
     }
   },
 
+  async getUserDetails(req: Request, res: Response) {
+    try {
+      const payload = await adminBackofficeService.getUserDetails(String(req.params.id));
+      res.status(200).json(payload);
+    } catch (error) {
+      handleError(res, error, "Erro ao carregar detalhes do motorista.");
+    }
+  },
+
   async listPayments(req: Request, res: Response) {
     try {
       const payload = await adminBackofficeService.listPayments({

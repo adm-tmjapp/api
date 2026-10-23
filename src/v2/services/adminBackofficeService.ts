@@ -442,6 +442,95 @@ export const adminBackofficeService = {
     };
   },
 
+  async getUserDetails(userId: string) {
+    ensureObjectId(userId, "userId");
+
+    const user = await User.findById(userId)
+      .select("name email phone cpf role authStatus emailVerified phoneVerified profilePhoto createdAt updatedAt")
+      .lean();
+    if (!user) {
+      throw new AdminBackofficeError(404, "NOT_FOUND", "Motorista não encontrado.");
+    }
+
+    const [onboardingStatus, documents, vehicles] = await Promise.all([
+      OnboardingService.buildDriverOnboarding(user as any),
+      DriverDocument.find({ user: userId })
+        .sort({ createdAt: -1, _id: -1 })
+        .lean(),
+      Vehicle.find({ userId })
+        .sort({ createdAt: -1, _id: -1 })
+        .populate("photo")
+        .populate("documents")
+        .lean(),
+    ]);
+
+    const vehiclePhotos = vehicles.length
+      ? await VehiclePhoto.find({
+          user: userId,
+          vehicle: { $in: vehicles.map((vehicle: any) => vehicle._id) },
+        })
+          .sort({ createdAt: -1, _id: -1 })
+          .lean()
+      : [];
+
+    return {
+      success: true,
+      data: {
+        user: {
+          id: String(user._id),
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          cpf: user.cpf || null,
+          role: user.role,
+          authStatus: user.authStatus,
+          emailVerified: Boolean(user.emailVerified),
+          phoneVerified: Boolean(user.phoneVerified),
+          profilePhoto: user.profilePhoto || null,
+          createdAt: user.createdAt || null,
+          updatedAt: getDocumentTimestamp(user),
+        },
+        onboardingStatus,
+        documents: documents.map((document: any) => ({
+          id: String(document._id),
+          type: document.type,
+          side: document.side || null,
+          status: document.status,
+          fileUrl: document.fileUrl,
+          filename: document.filename || null,
+          rejectionReason: document.rejectionReason || null,
+          createdAt: document.createdAt || null,
+          reviewedAt: document.reviewedAt || null,
+        })),
+        vehicles: vehicles.map((vehicle: any) => ({
+          id: String(vehicle._id),
+          manufacturer: vehicle.manufacturer,
+          modelName: vehicle.modelName,
+          year: vehicle.year || null,
+          vehiclePlate: vehicle.vehiclePlate,
+          color: vehicle.color,
+          vehicleType: vehicle.vehicleType,
+          usage: vehicle.usage || null,
+          status: vehicle.status || null,
+          documentationStatus: vehicle.documentationStatus || null,
+          activationStatus: vehicle.activationStatus || null,
+          createdAt: vehicle.createdAt || null,
+          photos: vehiclePhotos
+            .filter((photo: any) => String(photo.vehicle) === String(vehicle._id))
+            .map((photo: any) => ({
+              id: String(photo._id),
+              type: photo.type,
+              status: photo.status,
+              fileUrl: photo.fileUrl,
+              rejectionReason: photo.rejectionReason || null,
+              createdAt: photo.createdAt || null,
+              reviewedAt: photo.reviewedAt || null,
+            })),
+        })),
+      },
+    };
+  },
+
   async listPayments(input: {
     page?: number;
     limit?: number;

@@ -573,7 +573,8 @@ export const driverProfileService = {
   async getSecurity() {
     return {
       privacyPolicyUrl:
-        process.env.PRIVACY_POLICY_URL || "https://tmjapp.com.br/privacy",
+        process.env.PRIVACY_POLICY_URL ||
+        "https://tmjapp.com.br/politica-de-privacidade",
       termsUrl: process.env.TERMS_URL || "https://tmjapp.com.br/terms",
       appVersion: process.env.MOBILE_APP_VERSION || "1.5.0",
     };

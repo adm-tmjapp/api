@@ -163,6 +163,27 @@ router.post(
   asyncHandler(VehicleController.saveOnboardingVehicle),
 );
 
+// O onboarding permanece acessível para que o motorista possa confirmar o
+// e-mail. Funcionalidades operacionais só ficam disponíveis após a confirmação.
+router.use(asyncHandler(async (req, res, next) => {
+  if (req.user?.role === "admin") {
+    next?.();
+    return;
+  }
+
+  const user = await User.findById(req.user?.id).select("emailVerified").lean();
+  if (!user?.emailVerified) {
+    res.status(403).json({
+      success: false,
+      code: "EMAIL_NOT_VERIFIED",
+      message: "Confirme seu e-mail antes de acessar esta funcionalidade.",
+    });
+    return;
+  }
+
+  next?.();
+}));
+
 router.get(
   "/dashboard",
   asyncHandler(driverDashboardController.getDashboard),

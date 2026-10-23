@@ -1,5 +1,6 @@
 import Vehicle, { IVehicle } from "../models/Vehicle";
 import mongoose from "mongoose";
+import VehiclePhoto from "../models/VehiclePhoto";
 
 export class VehicleService {
   static async createVehicle(data: Partial<IVehicle>): Promise<IVehicle> {
@@ -109,7 +110,22 @@ export class VehicleService {
         (d) => new mongoose.Types.ObjectId(d)
       );
 
-    return Vehicle.findByIdAndUpdate(id, payload, { new: true }).exec();
+    const updated = await Vehicle.findByIdAndUpdate(id, payload, {
+      new: true,
+    }).exec();
+    if (!updated) return null;
+
+    // Keep the records consumed by the driver's onboarding status in sync with
+    // the backoffice approval action.
+    await VehiclePhoto.updateMany(
+      { vehicle: updated._id },
+      {
+        $set: { status: "APPROVED", reviewedAt: new Date() },
+        $unset: { rejectionReason: "" },
+      },
+    ).exec();
+
+    return updated;
   }
 
   static async deleteVehicle(id: string) {

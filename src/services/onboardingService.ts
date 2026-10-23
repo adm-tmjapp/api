@@ -87,15 +87,19 @@ export class OnboardingService {
         .filter((photo) => photo.status === "APPROVED")
         .map((photo) => String(photo.type)),
     );
+    // A vehicle approved by the backoffice is the authoritative approval for
+    // the vehicle package. This prevents drivers from remaining in review when
+    // legacy photo records still have a stale PENDING status.
     const vehiclePhotosCompleted =
-      requiredVehiclePhotoTypes.size === approvedVehiclePhotoTypes.size &&
-      [...requiredVehiclePhotoTypes].every((type) =>
-        approvedVehiclePhotoTypes.has(type),
-      );
+      vehicle?.status === "APPROVED" ||
+      (requiredVehiclePhotoTypes.size === approvedVehiclePhotoTypes.size &&
+        [...requiredVehiclePhotoTypes].every((type) =>
+          approvedVehiclePhotoTypes.has(type),
+        ));
 
-    const vehiclePhotosUnderReview = vehiclePhotos.some(
-      (photo) => photo.status === "PENDING"
-    );
+    const vehiclePhotosUnderReview =
+      vehicle?.status !== "APPROVED" &&
+      vehiclePhotos.some((photo) => photo.status === "PENDING");
 
     /* ============================
      * STEPS MAP
