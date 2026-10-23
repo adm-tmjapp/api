@@ -123,6 +123,26 @@ async function createTicket(data: {
 }
 
 export const driverRideSupportService = {
+  async listTickets(rideId: string, driverUserId: string) {
+    await ensureRideBelongsToDriver(rideId, driverUserId);
+    const tickets = await RideSupportTicket.find({ rideId, driverUserId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return {
+      tickets: tickets.map((ticket) => ({
+        ticketId: String(ticket._id),
+        issueCode: ticket.issueCode,
+        subject: ticket.subject || null,
+        description: ticket.description || null,
+        status: ticket.status,
+        message: ticket.message,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+      })),
+    };
+  },
+
   async getSupportOptions(rideId: string, driverUserId: string) {
     await ensureRideBelongsToDriver(rideId, driverUserId);
 

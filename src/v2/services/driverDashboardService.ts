@@ -241,7 +241,7 @@ async function ensureDriverRide(rideId: string, driverUserId: string): Promise<a
     throw new ServiceError(400, "INVALID_RIDE_ID", "Ride ID inválido.");
   }
 
-  const ride = await Ride.findById(rideId).lean();
+  const ride = await Ride.findById(rideId).select('+verificationCode').lean();
   if (!ride) {
     throw new ServiceError(404, "RIDE_NOT_FOUND", "Corrida não encontrada.");
   }
@@ -495,7 +495,7 @@ export const driverDashboardService = {
     };
   },
 
-  async startRide(driverUserId: string, rideId: string) {
+  async startRide(driverUserId: string, rideId: string, verificationCode?: string) {
     await ensureDriverByUserId(driverUserId);
     const ride = await ensureDriverRide(rideId, driverUserId);
     const currentStatus = String((ride as any).status || "").toLowerCase();
@@ -512,6 +512,15 @@ export const driverDashboardService = {
         409,
         "RIDE_INVALID_STATUS",
         "A corrida precisa estar aceita para iniciar.",
+      );
+    }
+
+    const expectedCode = String((ride as any).verificationCode || "").trim();
+    if (expectedCode && String(verificationCode || "").trim() !== expectedCode) {
+      throw new ServiceError(
+        422,
+        "RIDE_INVALID_STATUS",
+        "Código de embarque inválido. Confirme o código informado pelo passageiro.",
       );
     }
 

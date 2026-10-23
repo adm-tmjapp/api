@@ -255,6 +255,11 @@ router.get(
   asyncHandler(driverRideSupportController.getSupportOptions),
 );
 
+router.get(
+  "/rides/:rideId/support/tickets",
+  asyncHandler(driverRideSupportController.listTickets),
+);
+
 router.post(
   "/rides/:rideId/support/tickets",
   asyncHandler(driverRideSupportController.createSupportTicket),

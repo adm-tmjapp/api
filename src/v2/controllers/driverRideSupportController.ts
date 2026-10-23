@@ -24,6 +24,17 @@ function handleError(res: Response, error: unknown) {
 }
 
 export const driverRideSupportController = {
+  async listTickets(req: Request, res: Response) {
+    try {
+      const driverUserId = req.user?.id as string;
+      const rideId = req.params.rideId as string;
+      const payload = await driverRideSupportService.listTickets(rideId, driverUserId);
+      res.status(200).json(payload);
+    } catch (error) {
+      handleError(res, error);
+    }
+  },
+
   async getSupportOptions(req: Request, res: Response) {
     try {
       const driverUserId = req.user?.id as string;

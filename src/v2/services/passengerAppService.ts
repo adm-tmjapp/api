@@ -99,6 +99,10 @@ function mapRideStatus(status?: string) {
   return String(status || "pending").toLowerCase();
 }
 
+function createVerificationCode() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 function buildRideDetailPayload(ride: any) {
   return {
     id: String(ride._id),
@@ -111,6 +115,7 @@ function buildRideDetailPayload(ride: any) {
     accepted_at: normalizeDateTime(ride.acceptedAt),
     picked_up_at: normalizeDateTime(ride.pickedUpAt),
     completed_at: normalizeDateTime(ride.completedAt),
+    verification_code: ride.verificationCode || null,
     driver: ride.driver || null,
     vehicle: ride.vehicle || null,
     pickup_location: ride.pickup_location || null,
@@ -221,7 +226,7 @@ async function ensurePassengerRide(rideId: string, passengerUserId: string) {
     throw new PassengerAppServiceError(422, "INVALID_RIDE_ID", "Ride ID inválido.");
   }
 
-  const ride = await Ride.findById(rideId).lean();
+  const ride = await Ride.findById(rideId).select('+verificationCode').lean();
   if (!ride) {
     throw new PassengerAppServiceError(404, "RIDE_NOT_FOUND", "Corrida não encontrada.");
   }
@@ -318,6 +323,7 @@ export const passengerAppService = {
       },
       route,
       requestedAt: new Date(),
+      verificationCode: createVerificationCode(),
     });
 
     let dispatch: Record<string, unknown> | null = null;
@@ -415,6 +421,7 @@ export const passengerAppService = {
       paymentExpiresAt: normalizeDateTime(ride.paymentExpiresAt),
       cancellationReason: ride.cancellationReason || null,
       updatedAt: normalizeDateTime(ride.updatedAt || ride.completedAt || ride.acceptedAt || ride.requestedAt),
+      verificationCode: ride.verificationCode || null,
     };
   },
 

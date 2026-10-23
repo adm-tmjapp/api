@@ -133,7 +133,11 @@ export const driverDashboardController = {
     try {
       const rideId = req.params.rideId as string;
       const driverUserId = req.user?.id as string;
-      const payload = await driverDashboardService.startRide(driverUserId, rideId);
+      const payload = await driverDashboardService.startRide(
+        driverUserId,
+        rideId,
+        req.body?.verificationCode,
+      );
       res.status(200).json(payload);
     } catch (error) {
       handleError(res, error);

@@ -105,6 +105,20 @@ export const adminBackofficeController = {
     }
   },
 
+  async listSupportTickets(req: Request, res: Response) {
+    try {
+      const payload = await adminBackofficeService.listSupportTickets({
+        page: Number(req.query.page || 1),
+        limit: Number(req.query.limit || 50),
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        issueCode: typeof req.query.issueCode === "string" ? req.query.issueCode : undefined,
+      });
+      res.status(200).json(payload);
+    } catch (error) {
+      handleError(res, error, "Erro ao listar tickets de suporte.");
+    }
+  },
+
   async listRides(req: Request, res: Response) {
     try {
       const rawStatus = req.query.status;

@@ -14,6 +14,7 @@ export interface IRide extends Document {
   arrivedAt?: Date;
   pickedUpAt?: Date;
   completedAt?: Date;
+  verificationCode?: string;
   rider?: {
     id?: string;
     name?: string;
@@ -117,6 +118,7 @@ const RideSchema = new Schema<IRide>({
   arrivedAt: { type: Date, required: false },
   pickedUpAt: { type: Date, required: false },
   completedAt: { type: Date, required: false },
+  verificationCode: { type: String, required: false, select: false },
   rider: {
     id: { type: String, required: false },
     name: { type: String, required: false },

@@ -8,6 +8,7 @@ import Ride from "../../models/Ride";
 import User from "../../models/User";
 import Vehicle from "../../models/Vehicle";
 import VehiclePhoto from "../../models/VehiclePhoto";
+import RideSupportTicket from "../../models/RideSupportTicket";
 import DriverDocumentService from "../../services/driverDocumentService";
 import { OnboardingService } from "../../services/onboardingService";
 import VehicleService from "../../services/vehicleService";
@@ -475,6 +476,49 @@ export const adminBackofficeService = {
           paymentMethod: payment.billingType,
           status: payment.status,
           createdAt: getDocumentTimestamp(payment),
+        })),
+        total,
+        page,
+        limit,
+      },
+    };
+  },
+
+  async listSupportTickets(input: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    issueCode?: string;
+  }) {
+    const page = Math.max(1, Number(input.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(input.limit || 50)));
+    const filter: Record<string, unknown> = {};
+    if (input.status) filter.status = input.status;
+    if (input.issueCode) filter.issueCode = input.issueCode;
+
+    const [tickets, total] = await Promise.all([
+      RideSupportTicket.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      RideSupportTicket.countDocuments(filter),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        tickets: tickets.map((ticket: any) => ({
+          id: String(ticket._id),
+          rideId: String(ticket.rideId),
+          driverUserId: String(ticket.driverUserId),
+          issueCode: ticket.issueCode,
+          subject: ticket.subject || null,
+          description: ticket.description || null,
+          status: ticket.status,
+          message: ticket.message,
+          createdAt: ticket.createdAt,
+          updatedAt: ticket.updatedAt,
         })),
         total,
         page,
