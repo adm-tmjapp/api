@@ -100,6 +100,11 @@ function toPendingRideItem(ride: any) {
   const pickupCoordinates = ride?.pickup_location?.coordinates || {};
   const dropoffCoordinates = ride?.destination_location?.coordinates || {};
 
+  const grossAmount = parseMoney(ride?.fare?.total_amount ?? ride?.product?.price);
+  const serviceFee = parseMoney(
+    ride?.fare?.breakdown?.service_fee ?? ride?.product?.fare_breakdown?.valorTaxa,
+  );
+
   return {
     id: String(ride?._id),
     typeLabel:
@@ -111,7 +116,10 @@ function toPendingRideItem(ride: any) {
     routeLabel: `${pickupAddress} -> ${dropoffAddress}`.trim(),
     distanceKm: ride?.route?.distance_km || 0,
     etaMin: ride?.route?.duration_min || 0,
-    price: parseMoney(ride?.fare?.total_amount ?? ride?.product?.price),
+    price: grossAmount,
+    grossAmount,
+    serviceFee,
+    netAmount: Math.max(0, Number((grossAmount - serviceFee).toFixed(2))),
     paymentMethod: ride?.payment_method || "APP",
     pickup: {
       address: pickupAddress,
@@ -303,11 +311,34 @@ export const driverDashboardService = {
     }).lean()) as any[];
 
     const todayRides = todayCompleted.length;
-    const todayEarnings = Number(
+    const todayGrossEarnings = Number(
       todayCompleted
         .reduce((acc, ride) => acc + parseMoney(ride?.fare?.total_amount ?? ride?.product?.price), 0)
         .toFixed(2),
     );
+    const todayNetEarnings = Number(
+      todayCompleted
+        .reduce((acc, ride) => {
+          const gross = parseMoney(ride?.fare?.total_amount ?? ride?.product?.price);
+          const fee = parseMoney(
+            ride?.fare?.breakdown?.service_fee ?? ride?.product?.fare_breakdown?.valorTaxa,
+          );
+          return acc + Math.max(0, gross - fee);
+        }, 0)
+        .toFixed(2),
+    );
+    const ratedRides = todayCompleted.filter(
+      (ride) => typeof ride?.driver?.rating === "number" && ride.driver.rating > 0,
+    );
+    const driverRating =
+      ratedRides.length > 0
+        ? Number(
+            (
+              ratedRides.reduce((acc, ride) => acc + Number(ride.driver.rating), 0) /
+              ratedRides.length
+            ).toFixed(1),
+          )
+        : null;
     const progressPercent = Math.min(
       100,
       Math.round((todayRides / DAILY_GOAL_RIDES) * 100),
@@ -318,7 +349,9 @@ export const driverDashboardService = {
       availability: mapAvailability(Boolean((driver as any)?.isAvailable)),
       summary: {
         todayRides,
-        todayEarnings,
+        todayEarnings: todayNetEarnings,
+        todayGrossEarnings,
+        driverRating,
         progressPercent,
       },
       pendingRides: pending.items,
