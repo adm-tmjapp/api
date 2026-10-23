@@ -38,11 +38,13 @@ async function getRideForParticipant(
     );
   }
 
-  if (!ride.status || ride.status === "pending") {
+  if (ride.status !== "accepted" && ride.status !== "ongoing") {
     throw new RideChatServiceError(
       409,
-      "O chat será liberado quando a corrida for aceita.",
-      "CHAT_NOT_AVAILABLE",
+      ride.status === "pending"
+        ? "O chat será liberado quando a corrida for aceita."
+        : "Por segurança, o chat foi encerrado após o término da corrida.",
+      ride.status === "pending" ? "CHAT_NOT_AVAILABLE" : "CHAT_CLOSED",
     );
   }
 

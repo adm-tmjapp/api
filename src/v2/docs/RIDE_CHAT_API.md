@@ -1,6 +1,6 @@
 # Chat de corrida
 
-Os endpoints abaixo exigem `Authorization: Bearer <token>` e só permitem acesso ao passageiro ou motorista vinculado à corrida.
+Os endpoints abaixo exigem `Authorization: Bearer <token>` e só permitem acesso ao passageiro ou motorista vinculado à corrida. O envio e a leitura ficam disponíveis apenas nos status `accepted` e `ongoing`; após conclusão ou cancelamento, a comunicação é encerrada por segurança.
 
 ## Mensagens
 
