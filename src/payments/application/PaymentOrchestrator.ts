@@ -257,6 +257,16 @@ export const paymentOrchestrator = {
       throw error;
     }
 
+    const existingPixPayment = await RidePayment.findOne({
+      rideId: new mongoose.Types.ObjectId(input.rideId),
+      passengerId: new mongoose.Types.ObjectId(input.passengerId),
+      billingType: "PIX",
+      status: { $in: ["PENDING", "WAITING_PIX_PAYMENT", "AUTHORIZED", "PAID"] },
+    }).sort({ createdAt: -1 });
+    if (existingPixPayment) {
+      return existingPixPayment;
+    }
+
     const policy = await paymentPolicyEngine.resolve({
       cityId: input.cityId,
       productId: input.productId,
