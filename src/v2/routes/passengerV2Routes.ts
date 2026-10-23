@@ -35,6 +35,9 @@ router.patch(
 );
 router.post("/device-token", asyncHandler(passengerDeviceTokenController.register));
 
+router.get("/profile", asyncHandler(passengerAppController.getProfile));
+router.put("/profile", asyncHandler(passengerAppController.updateProfile));
+
 router.post("/payments", asyncHandler(passengerAppController.createPayment));
 router.get(
   "/payments/options",

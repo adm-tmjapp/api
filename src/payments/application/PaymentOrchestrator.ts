@@ -223,6 +223,24 @@ export const paymentOrchestrator = {
       },
     });
 
+    const existingCard = await PassengerPaymentMethod.findOne({
+      passengerUserId: gatewayCustomer.userId,
+      provider: provider.name,
+      type: "card",
+      status: "ACTIVE",
+      last4: tokenized.last4 || input.number.slice(-4),
+      holderName: input.holderName,
+    });
+    if (existingCard) {
+      const error = new Error("Este cartão já está salvo.") as Error & {
+        statusCode?: number;
+        code?: string;
+      };
+      error.statusCode = 409;
+      error.code = "CARD_ALREADY_SAVED";
+      throw error;
+    }
+
     if (input.setAsDefault) {
       await PassengerPaymentMethod.updateMany(
         {

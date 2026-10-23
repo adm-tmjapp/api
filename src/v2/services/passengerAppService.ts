@@ -282,6 +282,56 @@ async function ensurePassengerNotificationsSeed(passengerUserId: string) {
 }
 
 export const passengerAppService = {
+  async getProfile(passengerUserId: string) {
+    const user = await ensurePassenger(passengerUserId);
+
+    return {
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      profilePhoto: user.profilePhoto || null,
+    };
+  },
+
+  async updateProfile(
+    passengerUserId: string,
+    input: { name?: string; phone?: string },
+  ) {
+    await ensurePassenger(passengerUserId);
+
+    const name = String(input.name || "").trim();
+    const phone = String(input.phone || "").trim();
+    if (!name || !phone) {
+      throw new PassengerAppServiceError(
+        422,
+        "VALIDATION_ERROR",
+        "Nome e telefone são obrigatórios.",
+      );
+    }
+
+    const user = await User.findByIdAndUpdate(
+      passengerUserId,
+      { $set: { name, phone } },
+      { new: true },
+    );
+    if (!user) {
+      throw new PassengerAppServiceError(
+        404,
+        "PASSENGER_NOT_FOUND",
+        "Passageiro não encontrado.",
+      );
+    }
+
+    return {
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      profilePhoto: user.profilePhoto || null,
+    };
+  },
+
   async createRide(passengerUserId: string, body: any) {
     await ensurePassenger(passengerUserId);
 

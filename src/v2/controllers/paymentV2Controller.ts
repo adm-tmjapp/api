@@ -14,7 +14,11 @@ function handleError(res: Response, error: unknown, fallbackMessage: string) {
   res.status(typed.statusCode || 500).json({
     statusCode: typed.statusCode || 500,
     error: typed.code || "INTERNAL_ERROR",
-    message: typed.message || fallbackMessage,
+    message:
+      typed.code === "PAYMENT_PROVIDER_ERROR"
+        ? "Não foi possível concluir a operação de pagamento."
+        : typed.message || fallbackMessage,
+    retryable: typed.code === "PAYMENT_PROVIDER_ERROR",
     details: typed.details || {},
   });
 }

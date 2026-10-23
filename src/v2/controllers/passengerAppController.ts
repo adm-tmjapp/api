@@ -24,6 +24,29 @@ function handleError(res: Response, error: unknown) {
 }
 
 export const passengerAppController = {
+  async getProfile(req: Request, res: Response) {
+    try {
+      const passengerUserId = req.user?.id as string;
+      const payload = await passengerAppService.getProfile(passengerUserId);
+      res.status(200).json(payload);
+    } catch (error) {
+      handleError(res, error);
+    }
+  },
+
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const passengerUserId = req.user?.id as string;
+      const payload = await passengerAppService.updateProfile(
+        passengerUserId,
+        req.body || {},
+      );
+      res.status(200).json(payload);
+    } catch (error) {
+      handleError(res, error);
+    }
+  },
+
   async createRide(req: Request, res: Response) {
     try {
       const passengerUserId = req.user?.id as string;

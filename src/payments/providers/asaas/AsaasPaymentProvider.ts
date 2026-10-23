@@ -21,6 +21,8 @@ type AsaasApiOptions = {
 class AsaasApiError extends Error {
   statusCode: number;
 
+  code = "PAYMENT_PROVIDER_ERROR";
+
   details?: unknown;
 
   constructor(message: string, statusCode: number, details?: unknown) {
@@ -72,10 +74,17 @@ async function parseAsaasResponse(response: Response) {
   }
 
   if (!response.ok) {
+    const providerErrors = Array.isArray(data.errors) ? data.errors : [];
     throw new AsaasApiError(
-      `Asaas request failed with status ${response.status}`,
+      response.status === 400
+        ? "Não foi possível concluir a operação de pagamento."
+        : "O serviço de pagamentos está temporariamente indisponível.",
       response.status,
-      data,
+      {
+        provider: "asaas",
+        providerStatus: response.status,
+        providerErrors,
+      },
     );
   }
 
