@@ -192,9 +192,19 @@ export class AsaasPaymentProvider implements PaymentProvider {
     });
 
     const providerPaymentId = String(paymentRaw.id);
-    const qrCodeRaw = await this.request(`/payments/${providerPaymentId}/pixQrCode`, {
-      method: "GET",
-    });
+    let qrCodeRaw: Record<string, unknown>;
+    try {
+      qrCodeRaw = await this.request(`/payments/${providerPaymentId}/pixQrCode`, {
+        method: "GET",
+      });
+    } catch (error) {
+      const typed = error as Error & { details?: Record<string, unknown> };
+      typed.details = {
+        ...(typed.details || {}),
+        providerPaymentId,
+      };
+      throw error;
+    }
 
     return {
       providerPaymentId,

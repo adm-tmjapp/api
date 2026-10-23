@@ -107,6 +107,33 @@ function ensurePositivePaymentAmount(amount: number) {
   }
 }
 
+function getPaymentProviderFailure(error: unknown) {
+  const typed = error as Error & {
+    code?: string;
+    statusCode?: number;
+    details?: Record<string, unknown>;
+  };
+  const details = typed.details || {};
+  const providerErrors = Array.isArray(details.providerErrors)
+    ? details.providerErrors
+        .map((item: any) => ({
+          code: item?.code ? String(item.code) : undefined,
+          description: item?.description ? String(item.description) : undefined,
+        }))
+        .filter((item) => item.code || item.description)
+        .slice(0, 5)
+    : [];
+
+  return {
+    code: typed.code || "PAYMENT_PROVIDER_ERROR",
+    message: typed.message || "Falha no provedor de pagamento.",
+    retryable: typed.code === "PAYMENT_PROVIDER_ERROR" || Number(typed.statusCode || 0) >= 500,
+    providerStatus: Number(details.providerStatus || typed.statusCode || 0) || null,
+    providerPaymentId: details.providerPaymentId ? String(details.providerPaymentId) : null,
+    providerErrors,
+  };
+}
+
 function assertCardDetails(card: CardDetailsInput | null | undefined): CardDetailsInput {
   ensureRequiredCardFields(card);
   return card as CardDetailsInput;
@@ -307,18 +334,35 @@ export const paymentOrchestrator = {
     paymentPolicyEngine.assertMethodEnabled(policy, "PIX");
 
     const provider = createPaymentProvider(policy.provider);
-    const gatewayCustomer = await this.ensureProviderCustomer({
-      userId: input.passengerId,
-      provider: provider.name,
-    });
+    let gatewayCustomer: { providerCustomerId: string };
+    try {
+      gatewayCustomer = await this.ensureProviderCustomer({
+        userId: input.passengerId,
+        provider: provider.name,
+      });
+    } catch (error) {
+      const failure = getPaymentProviderFailure(error);
+      await this.persistFailedPixPayment(input, provider.name, failure);
+      throw error;
+    }
 
-    const providerCharge = await provider.createPixCharge({
-      providerCustomerId: gatewayCustomer.providerCustomerId,
-      externalReference: input.rideId,
-      amount: input.amount,
-      description: input.description,
-      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    });
+    let providerCharge;
+    try {
+      providerCharge = await provider.createPixCharge({
+        providerCustomerId: gatewayCustomer.providerCustomerId,
+        externalReference: input.rideId,
+        amount: input.amount,
+        description: input.description,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      });
+    } catch (error) {
+      const failure = getPaymentProviderFailure(error);
+      await this.persistFailedPixPayment(input, provider.name, {
+        ...failure,
+        providerCustomerId: gatewayCustomer.providerCustomerId,
+      });
+      throw error;
+    }
 
     const payment = await RidePayment.create({
       rideId: new mongoose.Types.ObjectId(input.rideId),
@@ -348,6 +392,51 @@ export const paymentOrchestrator = {
       paymentExpiresAt: new Date(
         Date.now() + Number(process.env.RIDE_PAYMENT_TIMEOUT_MS || 5 * 60 * 1000),
       ),
+    });
+
+    return payment;
+  },
+
+  async persistFailedPixPayment(
+    input: CreatePixPaymentInput,
+    providerName: string,
+    failure: {
+      code: string;
+      message: string;
+      retryable: boolean;
+      providerStatus: number | null;
+      providerPaymentId: string | null;
+      providerErrors: Array<{ code?: string; description?: string }>;
+      providerCustomerId?: string;
+    },
+  ) {
+    const payment = await RidePayment.create({
+      rideId: new mongoose.Types.ObjectId(input.rideId),
+      passengerId: new mongoose.Types.ObjectId(input.passengerId),
+      driverId: input.driverId ? new mongoose.Types.ObjectId(input.driverId) : null,
+      provider: providerName,
+      providerPaymentId: failure.providerPaymentId,
+      providerCustomerId: failure.providerCustomerId || null,
+      billingType: "PIX",
+      status: "FAILED",
+      grossAmount: input.amount,
+      platformCommissionAmount: 0,
+      providerFeeAmount: 0,
+      driverNetAmount: 0,
+      platformNetAmount: 0,
+      failureCode: failure.code,
+      failureMessage: "Não foi possível gerar o pagamento Pix.",
+      failureRetryable: failure.retryable,
+      failedAt: new Date(),
+      providerPayload: {
+        providerStatus: failure.providerStatus,
+        providerErrors: failure.providerErrors,
+      },
+    });
+
+    await Ride.findByIdAndUpdate(input.rideId, {
+      paymentStatus: "FAILED",
+      paymentExpiresAt: null,
     });
 
     return payment;

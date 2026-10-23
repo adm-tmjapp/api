@@ -58,13 +58,13 @@ export class EmailService {
   /**
    * Envia código/token para reset de senha
    */
-  static async sendPasswordReset(email: string, code: string): Promise<void> {
+  static async sendPasswordReset(email: string, code: string): Promise<{ messageId?: string }> {
     if (!process.env.MAIL_HOST || !process.env.MAIL_PORT || !process.env.MAIL_USER || !process.env.MAIL_PASS || !process.env.MAIL_FROM) {
       throw new Error("Serviço de e-mail não configurado.");
     }
 
     try {
-      await mailTransporter.sendMail({
+      const info = await mailTransporter.sendMail({
         from: process.env.MAIL_FROM,
         to: email,
         subject: "Redefinição de senha - TMJ",
@@ -77,6 +77,7 @@ export class EmailService {
           </div>
         `,
       });
+      return { messageId: info.messageId };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha SMTP desconhecida";
       console.error(`[EmailService] Falha ao enviar reset para ${email}: ${message}`);

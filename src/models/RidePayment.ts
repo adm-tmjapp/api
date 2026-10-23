@@ -31,6 +31,10 @@ export interface IRidePayment extends Document {
   pixPayload?: string | null;
   pixEncodedImage?: string | null;
   pixExpirationDate?: Date | null;
+  failureCode?: string | null;
+  failureMessage?: string | null;
+  failureRetryable?: boolean;
+  failedAt?: Date | null;
   providerPayload?: Record<string, unknown>;
   paidAt?: Date | null;
   createdAt: Date;
@@ -110,6 +114,10 @@ const RidePaymentSchema = new Schema<IRidePayment>(
     pixPayload: { type: String, default: null },
     pixEncodedImage: { type: String, default: null },
     pixExpirationDate: { type: Date, default: null },
+    failureCode: { type: String, default: null },
+    failureMessage: { type: String, default: null },
+    failureRetryable: { type: Boolean, default: false },
+    failedAt: { type: Date, default: null },
     providerPayload: { type: Schema.Types.Mixed, default: undefined },
     paidAt: { type: Date, default: null },
   },

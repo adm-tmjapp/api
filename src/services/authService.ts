@@ -6,6 +6,7 @@ import { SmsService } from "./smsService";
 import { generateVerificationCode } from "../utils/generateCode";
 import { OnboardingService } from "./onboardingService";
 import { passengerAppService } from "../v2/services/passengerAppService";
+import AdminAuditLog from "../models/AdminAuditLog";
 
 export class AuthService {
   /* =====================================================
@@ -26,6 +27,37 @@ export class AuthService {
     }
 
     user.authStatus = "PENDING_EMAIL";
+  }
+
+  private static maskEmail(email?: string | null) {
+    if (!email || !email.includes("@")) return null;
+    const [local, domain] = email.toLowerCase().split("@", 2);
+    return `${local.slice(0, 2)}***@${domain}`;
+  }
+
+  private static async recordPasswordResetAudit(input: {
+    action: string;
+    user?: IUser | null;
+    email?: string | null;
+    details?: Record<string, unknown>;
+  }) {
+    try {
+      await AdminAuditLog.create({
+        action: input.action,
+        targetType: input.user?.role === "driver" ? "driver" : "password_reset",
+        targetId: input.user ? String(input.user._id) : undefined,
+        details: {
+          emailMasked: this.maskEmail(input.email || input.user?.email),
+          source: "PUBLIC_AUTH",
+          ...input.details,
+        },
+      });
+    } catch (error) {
+      console.warn("[AuthService] password reset audit failed", {
+        action: input.action,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private static generateToken(user: IUser) {
@@ -206,6 +238,12 @@ export class AuthService {
     if (!normalizedEmail) return;
 
     const user = await User.findOne({ email: normalizedEmail });
+    await this.recordPasswordResetAudit({
+      action: "PASSWORD_RESET_REQUESTED",
+      user,
+      email: normalizedEmail,
+      details: { outcome: user ? "USER_FOUND" : "NO_MATCH", channel: "EMAIL" },
+    });
     if (!user) return;
 
     const code = generateVerificationCode(6);
@@ -218,10 +256,25 @@ export class AuthService {
     } as any;
 
     await user.save();
+    await this.recordPasswordResetAudit({
+      action: "PASSWORD_RESET_CODE_GENERATED",
+      user,
+      details: { channel: "EMAIL", expiresInMinutes: 15 },
+    });
 
     try {
-      await EmailService.sendPasswordReset(user.email, code);
+      const result = await EmailService.sendPasswordReset(user.email, code);
+      await this.recordPasswordResetAudit({
+        action: "PASSWORD_RESET_EMAIL_SENT",
+        user,
+        details: { channel: "EMAIL", provider: "SMTP", messageId: result.messageId },
+      });
     } catch (error) {
+      await this.recordPasswordResetAudit({
+        action: "PASSWORD_RESET_EMAIL_FAILED",
+        user,
+        details: { channel: "EMAIL", provider: "SMTP", retryable: true },
+      });
       user.resetValidation = undefined as any;
       await user.save();
       throw error;
@@ -233,12 +286,18 @@ export class AuthService {
     const normalizedCode = code?.trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user || !user.resetValidation || user.resetValidation.code !== normalizedCode || this.isResetCodeExpired(user.resetValidation.sentAt)) {
+    if (!user || !user.resetValidation || user.resetValidation.code !== normalizedCode) {
+      await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_CODE_INVALID", user, email: normalizedEmail, details: { channel: "EMAIL" } });
+      throw new Error("Código inválido");
+    }
+    if (this.isResetCodeExpired(user.resetValidation.sentAt)) {
+      await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_CODE_EXPIRED", user, details: { channel: "EMAIL" } });
       throw new Error("Código inválido");
     }
 
     user.resetValidation.status = "verified";
     await user.save();
+    await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_CODE_VERIFIED", user, details: { channel: "EMAIL" } });
   }
 
   static async resetPassword(email: string, code: string, newPassword: string) {
@@ -246,13 +305,19 @@ export class AuthService {
     const normalizedCode = code?.trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user || !user.resetValidation || user.resetValidation.code !== normalizedCode || this.isResetCodeExpired(user.resetValidation.sentAt)) {
+    if (!user || !user.resetValidation || user.resetValidation.code !== normalizedCode) {
+      await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_CODE_INVALID", user, email: normalizedEmail, details: { channel: "EMAIL" } });
+      throw new Error("Código inválido");
+    }
+    if (this.isResetCodeExpired(user.resetValidation.sentAt)) {
+      await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_CODE_EXPIRED", user, details: { channel: "EMAIL" } });
       throw new Error("Código inválido");
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
     user.resetValidation = undefined as any;
     await user.save();
+    await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_COMPLETED", user, details: { channel: "EMAIL" } });
   }
 
   private static isResetCodeExpired(sentAt?: Date) {
@@ -399,8 +464,11 @@ export class AuthService {
       } as any;
       await user.save();
       try {
-        return await EmailService.sendPasswordReset(user.email, code);
+        const result = await EmailService.sendPasswordReset(user.email, code);
+        await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_EMAIL_SENT", user, details: { channel: "EMAIL", provider: "SMTP", messageId: result.messageId, resent: true } });
+        return result;
       } catch (error) {
+        await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_EMAIL_FAILED", user, details: { channel: "EMAIL", provider: "SMTP", retryable: true, resent: true } });
         user.resetValidation = undefined as any;
         await user.save();
         throw error;

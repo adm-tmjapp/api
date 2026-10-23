@@ -453,7 +453,7 @@ export const adminBackofficeService = {
       throw new AdminBackofficeError(404, "NOT_FOUND", "Motorista não encontrado.");
     }
 
-    const [onboardingStatus, documents, vehicles] = await Promise.all([
+    const [onboardingStatus, documents, vehicles, securityEvents] = await Promise.all([
       OnboardingService.buildDriverOnboarding(user as any),
       DriverDocument.find({ user: userId })
         .sort({ createdAt: -1, _id: -1 })
@@ -462,6 +462,10 @@ export const adminBackofficeService = {
         .sort({ createdAt: -1, _id: -1 })
         .populate("photo")
         .populate("documents")
+        .lean(),
+      AdminAuditLog.find({ targetId: userId, action: { $regex: /^PASSWORD_RESET_/ } })
+        .sort({ createdAt: -1 })
+        .limit(100)
         .lean(),
     ]);
 
@@ -527,6 +531,14 @@ export const adminBackofficeService = {
               createdAt: photo.createdAt || null,
               reviewedAt: photo.reviewedAt || null,
             })),
+        })),
+        securityEvents: securityEvents.map((event: any) => ({
+          id: String(event._id),
+          action: event.action,
+          targetType: event.targetType,
+          targetId: event.targetId || null,
+          details: event.details || {},
+          createdAt: event.createdAt || null,
         })),
       },
     };
@@ -696,6 +708,12 @@ export const adminBackofficeService = {
           amount: Number(payment.grossAmount || 0),
           paymentMethod: payment.billingType,
           status: payment.status,
+          failureCode: payment.failureCode || null,
+          failureMessage: payment.failureMessage || null,
+          failureRetryable: Boolean(payment.failureRetryable),
+          failedAt: payment.failedAt || null,
+          provider: payment.provider || null,
+          providerPaymentId: payment.providerPaymentId || null,
           createdAt: getDocumentTimestamp(payment),
         })),
         total,

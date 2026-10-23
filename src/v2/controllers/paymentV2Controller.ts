@@ -19,7 +19,7 @@ function handleError(res: Response, error: unknown, fallbackMessage: string) {
         ? "Não foi possível concluir a operação de pagamento."
         : typed.message || fallbackMessage,
     retryable: typed.code === "PAYMENT_PROVIDER_ERROR",
-    details: typed.details || {},
+    details: typed.code === "PAYMENT_PROVIDER_ERROR" ? {} : typed.details || {},
   });
 }
 
