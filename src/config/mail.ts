@@ -3,6 +3,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+export const tmjMailIdentity = {
+  name: process.env.MAIL_FROM_NAME || "TMJApp",
+  address: "noreply@tmjapp.com.br",
+  replyTo: process.env.MAIL_REPLY_TO || "suporte@tmjapp.com.br",
+};
+
+export const tmjMailSubjects = {
+  emailVerification: "TMJApp — Confirme seu e-mail",
+  passwordReset: "TMJApp — Código para recuperar sua senha",
+  passwordChanged: "TMJApp — Sua senha foi alterada",
+} as const;
+
 export const mailTransporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
   port: Number(process.env.MAIL_PORT || 587),

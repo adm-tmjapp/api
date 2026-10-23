@@ -318,6 +318,25 @@ export class AuthService {
     user.resetValidation = undefined as any;
     await user.save();
     await this.recordPasswordResetAudit({ action: "PASSWORD_RESET_COMPLETED", user, details: { channel: "EMAIL" } });
+
+    try {
+      const result = await EmailService.sendPasswordChanged(user.email);
+      await this.recordPasswordResetAudit({
+        action: "PASSWORD_CHANGED_EMAIL_SENT",
+        user,
+        details: { channel: "EMAIL", provider: "SMTP", messageId: result.messageId },
+      });
+    } catch (error) {
+      await this.recordPasswordResetAudit({
+        action: "PASSWORD_CHANGED_EMAIL_FAILED",
+        user,
+        details: { channel: "EMAIL", provider: "SMTP", retryable: true },
+      });
+      console.warn("[AuthService.resetPassword] confirmation e-mail not sent", {
+        userId: String(user._id),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private static isResetCodeExpired(sentAt?: Date) {
