@@ -3,6 +3,7 @@ import AdminAuditLog from "../../models/AdminAuditLog";
 import Driver from "../../models/Driver";
 import DriverDocument from "../../models/DriverDocument";
 import RidePayment from "../../models/RidePayment";
+import Payment from "../../models/Payment";
 import Product from "../../models/Product";
 import Ride from "../../models/Ride";
 import User from "../../models/User";
@@ -526,6 +527,137 @@ export const adminBackofficeService = {
               createdAt: photo.createdAt || null,
               reviewedAt: photo.reviewedAt || null,
             })),
+        })),
+      },
+    };
+  },
+
+  async getPassengerDetails(userId: string) {
+    ensureObjectId(userId, "userId");
+
+    const passenger = await User.findById(userId)
+      .select("name email phone cpf role authStatus emailVerified phoneVerified profilePhoto address createdAt")
+      .lean();
+    if (!passenger || passenger.role !== "passenger") {
+      throw new AdminBackofficeError(404, "NOT_FOUND", "Passageiro não encontrado.");
+    }
+
+    const rides = await Ride.find({
+      $or: [{ passengerId: userId }, { "rider.id": userId }],
+    })
+      .sort({ requestedAt: -1, _id: -1 })
+      .limit(100)
+      .lean();
+    const rideIds = rides.map((ride: any) => ride._id);
+
+    const [payments, ridePayments, tickets, auditHistory] = await Promise.all([
+      Payment.find({ passengerId: userId }).sort({ _id: -1 }).limit(100).lean(),
+      RidePayment.find({ passengerId: userId }).sort({ createdAt: -1 }).limit(100).lean(),
+      rideIds.length
+        ? RideSupportTicket.find({ rideId: { $in: rideIds } }).sort({ createdAt: -1 }).limit(100).lean()
+        : [],
+      AdminAuditLog.find({ $or: [{ targetId: userId }, { targetType: "passenger", "details.userId": userId }] })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+    ]);
+
+    const totalSpent = ridePayments
+      .filter((payment: any) => ["PAID", "AUTHORIZED"].includes(String(payment.status)))
+      .reduce((total: number, payment: any) => total + Number(payment.grossAmount || 0), 0);
+    const completedRides = rides.filter((ride: any) => ride.status === "completed").length;
+    const canceledRides = rides.filter((ride: any) => ride.status === "canceled").length;
+    const openTickets = tickets.filter((ticket: any) => ticket.status !== "RESOLVED").length;
+
+    return {
+      success: true,
+      data: {
+        user: {
+          id: String(passenger._id),
+          name: passenger.name,
+          email: passenger.email,
+          phone: passenger.phone,
+          cpfMasked: passenger.cpf ? `***.***.***-${String(passenger.cpf).slice(-2)}` : null,
+          role: passenger.role,
+          authStatus: passenger.authStatus,
+          emailVerified: Boolean(passenger.emailVerified),
+          phoneVerified: Boolean(passenger.phoneVerified),
+          profilePhoto: passenger.profilePhoto || null,
+          address: passenger.address || null,
+          createdAt: passenger.createdAt || null,
+        },
+        summary: {
+          totalRides: rides.length,
+          completedRides,
+          canceledRides,
+          activeRides: rides.filter((ride: any) => ["pending", "accepted", "ongoing"].includes(ride.status)).length,
+          totalSpent,
+          openSupportTickets: openTickets,
+          lastActivityAt: rides[0]?.requestedAt || getDocumentTimestamp(rides[0]),
+        },
+        recentRides: rides.slice(0, 30).map((ride: any) => ({
+          id: String(ride._id),
+          status: ride.status || null,
+          requestedAt: ride.requestedAt || getDocumentTimestamp(ride),
+          completedAt: ride.completedAt || null,
+          cancellationReason: ride.cancellationReason || null,
+          driver: ride.driver || null,
+          vehicle: ride.vehicle || null,
+          paymentMethod: ride.payment_method || null,
+          paymentStatus: ride.paymentStatus || null,
+          amount: ride.fare?.total_amount ?? null,
+          origin: ride.pickup_location?.address || null,
+          destination: ride.destination_location?.address || null,
+        })),
+        payments: [
+          ...ridePayments.map((payment: any) => ({
+            id: String(payment._id),
+            source: "ride_payment",
+            rideId: payment.rideId ? String(payment.rideId) : null,
+            amount: payment.grossAmount,
+            status: payment.status,
+            method: payment.billingType,
+            provider: payment.provider,
+            receiptUrl: payment.receiptUrl || null,
+            createdAt: payment.createdAt || null,
+          })),
+          ...payments.map((payment: any) => ({
+            id: String(payment._id),
+            source: "payment",
+            rideId: payment.rideId ? String(payment.rideId) : null,
+            amount: payment.amount,
+            status: payment.status,
+            method: payment.paymentMethod,
+            provider: null,
+            receiptUrl: null,
+            createdAt: payment.createdAt || getDocumentTimestamp(payment),
+          })),
+        ].slice(0, 50),
+        supportTickets: tickets.map((ticket: any) => ({
+          id: String(ticket._id),
+          rideId: ticket.rideId ? String(ticket.rideId) : null,
+          issueCode: ticket.issueCode,
+          subject: ticket.subject || null,
+          message: ticket.message,
+          status: ticket.status,
+          createdAt: ticket.createdAt,
+          updatedAt: ticket.updatedAt,
+        })),
+        securityAlerts: auditHistory
+          .filter((entry: any) => ["BLOCK", "UNBLOCK", "SECURITY", "PASSENGER"].some((term) => String(entry.action || "").toUpperCase().includes(term)))
+          .map((entry: any) => ({
+            id: String(entry._id),
+            action: entry.action,
+            targetType: entry.targetType,
+            details: entry.details || {},
+            createdAt: entry.createdAt,
+          })),
+        auditHistory: auditHistory.map((entry: any) => ({
+          id: String(entry._id),
+          action: entry.action,
+          targetType: entry.targetType,
+          details: entry.details || {},
+          createdAt: entry.createdAt,
         })),
       },
     };

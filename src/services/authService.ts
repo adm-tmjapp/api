@@ -219,13 +219,21 @@ export class AuthService {
 
     await user.save();
 
-    await EmailService.sendPasswordReset(user.email, code);
+    try {
+      await EmailService.sendPasswordReset(user.email, code);
+    } catch (error) {
+      user.resetValidation = undefined as any;
+      await user.save();
+      throw error;
+    }
   }
 
   static async verifyResetCode(email: string, code: string) {
-    const user = await User.findOne({ email });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedCode = code?.trim();
+    const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user || !user.resetValidation || user.resetValidation.code !== code) {
+    if (!user || !user.resetValidation || user.resetValidation.code !== normalizedCode || this.isResetCodeExpired(user.resetValidation.sentAt)) {
       throw new Error("Código inválido");
     }
 
@@ -234,15 +242,22 @@ export class AuthService {
   }
 
   static async resetPassword(email: string, code: string, newPassword: string) {
-    const user = await User.findOne({ email });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedCode = code?.trim();
+    const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user || !user.resetValidation || user.resetValidation.code !== code) {
+    if (!user || !user.resetValidation || user.resetValidation.code !== normalizedCode || this.isResetCodeExpired(user.resetValidation.sentAt)) {
       throw new Error("Código inválido");
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
     user.resetValidation = undefined as any;
     await user.save();
+  }
+
+  private static isResetCodeExpired(sentAt?: Date) {
+    if (!sentAt) return true;
+    return Date.now() - new Date(sentAt).getTime() > 15 * 60 * 1000;
   }
 
   /* =====================================================
@@ -383,7 +398,13 @@ export class AuthService {
         sentAt: new Date(),
       } as any;
       await user.save();
-      return EmailService.sendPasswordReset(user.email, code);
+      try {
+        return await EmailService.sendPasswordReset(user.email, code);
+      } catch (error) {
+        user.resetValidation = undefined as any;
+        await user.save();
+        throw error;
+      }
     }
 
     throw new Error("Tipo inválido");

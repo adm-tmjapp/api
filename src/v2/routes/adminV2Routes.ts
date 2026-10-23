@@ -31,6 +31,7 @@ router.put(
 router.get("/dashboard", asyncHandler(adminBackofficeController.getDashboard));
 router.get("/users", asyncHandler(adminBackofficeController.listUsers));
 router.get("/users/:id/details", asyncHandler(adminBackofficeController.getUserDetails));
+router.get("/users/:id/passenger-details", asyncHandler(adminBackofficeController.getPassengerDetails));
 router.get("/payments", asyncHandler(adminBackofficeController.listPayments));
 router.get("/support/tickets", asyncHandler(adminBackofficeController.listSupportTickets));
 router.get("/driver-withdrawals", asyncHandler(adminBackofficeController.listDriverWithdrawals));
