@@ -1,5 +1,6 @@
 import Ride from "../../models/Ride";
 import RideMessage, { RideMessageSenderRole } from "../../models/RideMessage";
+import { notifyRideChatRecipient } from "./rideChatPushService";
 
 export class RideChatServiceError extends Error {
   constructor(
@@ -78,6 +79,11 @@ export const rideChatService = {
     return messages.reverse().map((message) => serializeMessage(message, userId));
   },
 
+  async unreadCount(rideId: string, userId: string, role: RideMessageSenderRole) {
+    await getRideForParticipant(rideId, userId, role);
+    return RideMessage.countDocuments({ rideId, senderId: { $ne: userId }, readAt: null });
+  },
+
   async sendMessage(
     rideId: string,
     userId: string,
@@ -101,6 +107,11 @@ export const rideChatService = {
         "MESSAGE_TOO_LONG",
       );
     }
+    if (/https?:\/\/|www\.|\b\d{8,13}\b/i.test(normalizedContent)) {
+      throw new RideChatServiceError(400, "Por segurança, não envie links ou números de telefone pelo chat.", "MESSAGE_BLOCKED");
+    }
+    const recentMessages = await RideMessage.countDocuments({ senderId: userId, createdAt: { $gte: new Date(Date.now() - 60_000) } });
+    if (recentMessages >= 30) throw new RideChatServiceError(429, "Aguarde um pouco antes de enviar novas mensagens.", "MESSAGE_RATE_LIMIT");
 
     const message = await RideMessage.create({
       rideId,
@@ -108,6 +119,7 @@ export const rideChatService = {
       senderRole: role,
       content: normalizedContent,
     });
+    void notifyRideChatRecipient({ rideId, senderRole: role, senderName: role === "driver" ? "Seu motorista" : "Seu passageiro", content: normalizedContent });
 
     return serializeMessage(message.toObject(), userId);
   },

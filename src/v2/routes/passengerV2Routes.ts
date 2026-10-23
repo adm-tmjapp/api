@@ -5,6 +5,7 @@ import { asyncHandler } from "../common/asyncHandler";
 import { passengerAppController } from "../controllers/passengerAppController";
 import { paymentV2Controller } from "../controllers/paymentV2Controller";
 import { createRideChatController } from "../controllers/rideChatController";
+import { passengerDeviceTokenController } from "../controllers/passengerDeviceTokenController";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -27,10 +28,12 @@ router.post(
 router.get("/rides/:id/eta", asyncHandler(passengerAppController.getRideEta));
 router.get("/rides/:rideId/messages", asyncHandler(passengerChatController.list));
 router.post("/rides/:rideId/messages", asyncHandler(passengerChatController.send));
+router.get("/rides/:rideId/messages/unread-count", asyncHandler(passengerChatController.unreadCount));
 router.patch(
   "/rides/:rideId/messages/read",
   asyncHandler(passengerChatController.markRead),
 );
+router.post("/device-token", asyncHandler(passengerDeviceTokenController.register));
 
 router.post("/payments", asyncHandler(passengerAppController.createPayment));
 router.get(

@@ -214,6 +214,7 @@ router.get(
 );
 router.get("/rides/:rideId/messages", asyncHandler(driverChatController.list));
 router.post("/rides/:rideId/messages", asyncHandler(driverChatController.send));
+router.get("/rides/:rideId/messages/unread-count", asyncHandler(driverChatController.unreadCount));
 router.patch(
   "/rides/:rideId/messages/read",
   asyncHandler(driverChatController.markRead),

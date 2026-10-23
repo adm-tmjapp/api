@@ -48,6 +48,12 @@ export function createRideChatController(role: "passenger" | "driver") {
         handleError(res, error);
       }
     },
+    unreadCount: async (req: Request, res: Response) => {
+      try {
+        const count = await rideChatService.unreadCount(String(req.params.rideId), req.user?.id as string, role);
+        res.status(200).json({ success: true, unreadCount: count });
+      } catch (error) { handleError(res, error); }
+    },
     markRead: async (req: Request, res: Response) => {
       try {
         const result = await rideChatService.markAsRead(
