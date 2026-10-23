@@ -95,6 +95,18 @@ function ensureRequiredCardFields(card: CardDetailsInput | null | undefined) {
   }
 }
 
+function ensurePositivePaymentAmount(amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const error = new Error("Valor da cobrança inválido.") as Error & {
+      statusCode?: number;
+      code?: string;
+    };
+    error.statusCode = 422;
+    error.code = "INVALID_PAYMENT_AMOUNT";
+    throw error;
+  }
+}
+
 function assertCardDetails(card: CardDetailsInput | null | undefined): CardDetailsInput {
   ensureRequiredCardFields(card);
   return card as CardDetailsInput;
@@ -238,6 +250,7 @@ export const paymentOrchestrator = {
   async createPixRidePayment(input: CreatePixPaymentInput) {
     ensureValidObjectId(input.rideId, "Ride inválida.");
     ensureValidObjectId(input.passengerId, "Passageiro inválido.");
+    ensurePositivePaymentAmount(input.amount);
 
     const ride = await Ride.findById(input.rideId).lean();
     if (!ride) {
@@ -401,6 +414,7 @@ export const paymentOrchestrator = {
   async createCardRidePaymentUnsafe(input: CreateCardPaymentInput) {
     ensureValidObjectId(input.rideId, "Ride inválida.");
     ensureValidObjectId(input.passengerId, "Passageiro inválido.");
+    ensurePositivePaymentAmount(input.amount);
 
     const ride = await Ride.findById(input.rideId).lean();
     if (!ride) {
@@ -538,6 +552,12 @@ export const paymentOrchestrator = {
         description: input.description,
         remoteIp: input.remoteIp,
       }));
+
+    const existingPayment = await RidePayment.findOne({
+      provider: provider.name,
+      providerPaymentId: providerCharge.providerPaymentId,
+    });
+    if (existingPayment) return existingPayment;
 
     const payment = await RidePayment.create({
       rideId: new mongoose.Types.ObjectId(input.rideId),
