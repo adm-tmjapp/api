@@ -9,6 +9,7 @@ import { passengerAppService } from "../v2/services/passengerAppService";
 import AdminAuditLog from "../models/AdminAuditLog";
 
 export class AuthService {
+  private static readonly emailVerificationCodeTtlMs = 15 * 60 * 1000;
   /* =====================================================
    * Helpers internos
    ===================================================== */
@@ -39,12 +40,13 @@ export class AuthService {
     action: string;
     user?: IUser | null;
     email?: string | null;
+    targetType?: string;
     details?: Record<string, unknown>;
   }) {
     try {
       await AdminAuditLog.create({
         action: input.action,
-        targetType: input.user?.role === "driver" ? "driver" : "password_reset",
+        targetType: input.targetType || (input.user?.role === "driver" ? "driver" : "password_reset"),
         targetId: input.user ? String(input.user._id) : undefined,
         details: {
           emailMasked: this.maskEmail(input.email || input.user?.email),
@@ -141,20 +143,6 @@ export class AuthService {
       phoneVerified: true,
       authStatus: role === "driver" ? "PENDING_EMAIL" : "ACTIVE",
     });
-
-    // Start the driver's verification flow immediately after registration.
-    // Failure to send the e-mail must not invalidate an already-created user;
-    // the authenticated onboarding flow still provides a resend action.
-    if (role === "driver") {
-      try {
-        await EmailService.sendVerificationCode(String(user._id));
-      } catch (error) {
-        console.warn("[AuthService.register] verification e-mail not sent", {
-          userId: String(user._id),
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
 
     const token = this.generateToken(user);
     const authPayload = await this.buildAuthResponse(user);
@@ -373,6 +361,13 @@ export class AuthService {
       throw new Error("Código inválido");
     }
 
+    if (
+      !user.emailValidation.sentAt ||
+      Date.now() - new Date(user.emailValidation.sentAt).getTime() > this.emailVerificationCodeTtlMs
+    ) {
+      throw new Error("Código expirado. Solicite um novo código.");
+    }
+
     user.emailValidation.status = "verified";
     user.emailVerified = true;
     user.phoneVerified = true;
@@ -380,6 +375,31 @@ export class AuthService {
 
     this.updateAuthStatus(user);
     await user.save();
+
+    if (!user.welcomeEmailSentAt) {
+      try {
+        const result = await EmailService.sendWelcomeEmail(user);
+        user.welcomeEmailSentAt = new Date();
+        await user.save();
+        await this.recordPasswordResetAudit({
+          action: "WELCOME_EMAIL_SENT",
+          user,
+          targetType: "user",
+          details: { channel: "EMAIL", provider: "SMTP", messageId: result.messageId },
+        });
+      } catch (error) {
+        await this.recordPasswordResetAudit({
+          action: "WELCOME_EMAIL_FAILED",
+          user,
+          targetType: "user",
+          details: { channel: "EMAIL", provider: "SMTP", retryable: true },
+        });
+        console.warn("[AuthService.verifyEmailCode] welcome e-mail not sent", {
+          userId: String(user._id),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   static async verifyEmail(userId: string, code: string) {

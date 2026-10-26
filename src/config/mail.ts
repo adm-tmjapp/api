@@ -11,6 +11,7 @@ export const tmjMailIdentity = {
 
 export const tmjMailSubjects = {
   emailVerification: "TMJApp — Confirme seu e-mail",
+  welcome: "Bem-vindo(a) ao TMJApp",
   passwordReset: "TMJApp — Código para recuperar sua senha",
   passwordChanged: "TMJApp — Sua senha foi alterada",
 } as const;

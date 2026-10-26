@@ -11,6 +11,7 @@ export interface IUser extends Document {
 
   emailVerified: boolean;
   phoneVerified: boolean;
+  welcomeEmailSentAt?: Date;
 
   authStatus: "PENDING_EMAIL" | "PENDING_PHONE" | "ACTIVE" | "BLOCKED";
 
@@ -105,6 +106,8 @@ const UserSchema = new Schema<IUser>({
     type: Boolean,
     default: false,
   },
+
+  welcomeEmailSentAt: { type: Date },
 
   authStatus: {
     type: String,

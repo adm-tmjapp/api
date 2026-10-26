@@ -1,4 +1,4 @@
-import User from "../models/User";
+import User, { IUser } from "../models/User";
 import { generateVerificationCode } from "../utils/generateCode";
 import { mailTransporter, tmjMailIdentity, tmjMailSubjects } from "../config/mail";
 
@@ -28,6 +28,9 @@ function mailOptions(to: string, subject: string, content: string, text: string)
 }
 
 export class EmailService {
+  private static readonly verificationCodeTtlMs = 15 * 60 * 1000;
+  private static readonly verificationResendCooldownMs = 60 * 1000;
+
   /**
    * Envia código de verificação por e-mail
    */
@@ -36,6 +39,15 @@ export class EmailService {
 
     if (!user) {
       throw new Error("Usuário não encontrado");
+    }
+
+    const lastSentAt = user.emailValidation?.sentAt?.getTime();
+    if (
+      user.emailValidation?.status === "pending" &&
+      lastSentAt &&
+      Date.now() - lastSentAt < this.verificationResendCooldownMs
+    ) {
+      throw new Error("Aguarde um minuto antes de solicitar outro código.");
     }
 
     const code = generateVerificationCode(6);
@@ -64,6 +76,13 @@ export class EmailService {
     const user = await User.findById(userId);
 
     if (!user || !user.emailValidation || user.emailValidation.code !== code) {
+      return false;
+    }
+
+    if (
+      !user.emailValidation.sentAt ||
+      Date.now() - user.emailValidation.sentAt.getTime() > this.verificationCodeTtlMs
+    ) {
       return false;
     }
 
@@ -106,6 +125,26 @@ export class EmailService {
       tmjMailSubjects.passwordChanged,
       "<h2>Senha alterada com sucesso</h2><p>Sua senha do TMJApp foi alterada.</p><p>Se você não realizou esta alteração, entre em contato com o suporte imediatamente.</p>",
       "Sua senha do TMJApp foi alterada. Se você não realizou esta alteração, entre em contato com o suporte imediatamente."
+    ));
+
+    return { messageId: info.messageId };
+  }
+
+  static async sendWelcomeEmail(user: Pick<IUser, "name" | "email" | "role">): Promise<{ messageId?: string }> {
+    if (!process.env.MAIL_HOST || !process.env.MAIL_PORT || !process.env.MAIL_USER || !process.env.MAIL_PASS) {
+      throw new Error("Serviço de e-mail não configurado.");
+    }
+
+    const isDriver = user.role === "driver";
+    const nextStep = isDriver
+      ? "Acesse o aplicativo para acompanhar a análise do seu cadastro e concluir os próximos passos."
+      : "Acesse o aplicativo e comece a usar os recursos disponíveis para você.";
+
+    const info = await mailTransporter.sendMail(mailOptions(
+      user.email,
+      tmjMailSubjects.welcome,
+      `<h2>Olá, ${user.name}!</h2><p>Sua conta TMJApp foi confirmada com sucesso.</p><p>${nextStep}</p><p style="margin-top:24px;font-weight:700;">Estamos felizes em ter você com a gente.</p>`,
+      `Olá, ${user.name}! Sua conta TMJApp foi confirmada com sucesso. ${nextStep} Estamos felizes em ter você com a gente.`
     ));
 
     return { messageId: info.messageId };
