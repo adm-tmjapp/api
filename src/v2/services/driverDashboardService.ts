@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Driver from "../../models/Driver";
 import Ride from "../../models/Ride";
 import User from "../../models/User";
+import { OnboardingService } from "../../services/onboardingService";
 
 type DriverAvailability = "ONLINE" | "OFFLINE";
 
@@ -17,6 +18,7 @@ export type PendingRideFilters = {
 
 type ServiceErrorCode =
   | "DRIVER_NOT_FOUND"
+  | "DRIVER_NOT_ACTIVE"
   | "INVALID_RIDE_ID"
   | "RIDE_NOT_FOUND"
   | "RIDE_NOT_AVAILABLE"
@@ -163,10 +165,11 @@ async function ensureDriverByUserId(userId: string) {
   if (driver) return driver;
 
   const user = await User.findById(userId).select("role").lean();
-  if (user?.role === "admin") {
-    // Admins used in the operational test flow can also act as drivers.
-    // Create the minimum Driver profile once so availability, location,
-    // device tokens and ride actions use the same operational path.
+  if (user?.role === "driver" || user?.role === "admin") {
+    // A driver account can be created before the onboarding data is complete.
+    // Keep the operational Driver profile available so the dashboard and
+    // device-token endpoints do not fail with DRIVER_NOT_FOUND during that
+    // transition. Onboarding remains the source of truth for canDrive.
     return Driver.findOneAndUpdate(
       { userId },
       {
@@ -362,15 +365,38 @@ export const driverDashboardService = {
   async updateAvailability(driverUserId: string, availability: DriverAvailability) {
     const isAvailable = availability === "ONLINE";
 
-    const driver = await Driver.findOneAndUpdate(
-      { userId: driverUserId },
-      { $set: { isAvailable } },
-      { new: true },
-    );
+    const user = await User.findById(driverUserId)
+      .select("role authStatus")
+      .lean();
+    if (!user || (user.role !== "driver" && user.role !== "admin")) {
+      throw new ServiceError(404, "DRIVER_NOT_FOUND", "Motorista não encontrado.");
+    }
 
+    if (isAvailable && user.role !== "admin") {
+      if (user.authStatus !== "ACTIVE") {
+        throw new ServiceError(
+          403,
+          "DRIVER_NOT_ACTIVE",
+          "Seu cadastro de motorista ainda não está ativo. Conclua a validação para ficar online.",
+        );
+      }
+
+      const onboarding = await OnboardingService.buildDriverOnboarding(user as any);
+      if (!onboarding.canDrive) {
+        throw new ServiceError(
+          403,
+          "DRIVER_NOT_ACTIVE",
+          "Seu cadastro de motorista ainda não está aprovado para ficar online.",
+        );
+      }
+    }
+
+    const driver = await ensureDriverByUserId(driverUserId);
     if (!driver) {
       throw new ServiceError(404, "DRIVER_NOT_FOUND", "Motorista não encontrado.");
     }
+    driver.isAvailable = isAvailable;
+    await driver.save();
 
     return {
       success: true,

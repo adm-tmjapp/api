@@ -44,11 +44,32 @@ export const driverDeviceTokenService = {
       Driver.findOne({ userId: driverUserId }).lean(),
       User.findById(driverUserId).select("role").lean(),
     ]);
-    if (!driver && user?.role !== "admin") {
+    if (!driver && user?.role !== "driver" && user?.role !== "admin") {
       throw new DriverDeviceTokenServiceError(
         404,
         "DRIVER_NOT_FOUND",
         "Motorista não encontrado.",
+      );
+    }
+
+    if (!driver) {
+      await Driver.findOneAndUpdate(
+        { userId: driverUserId },
+        {
+          $setOnInsert: {
+            userId: driverUserId,
+            licenseNumber: `PENDING-${driverUserId.slice(-8).toUpperCase()}`,
+            vehicle: {
+              make: "TMJ",
+              model: "Veículo em cadastro",
+              year: new Date().getFullYear(),
+              plate: `PENDING-${driverUserId.slice(-4).toUpperCase()}`,
+            },
+            location: { type: "Point", coordinates: [0, 0] },
+            isAvailable: false,
+          },
+        },
+        { upsert: true, setDefaultsOnInsert: true },
       );
     }
 
