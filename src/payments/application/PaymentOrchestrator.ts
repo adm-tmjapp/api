@@ -107,6 +107,35 @@ function ensurePositivePaymentAmount(amount: number) {
   }
 }
 
+function normalizeCpf(value?: string | null) {
+  const cpf = String(value || "").replace(/\D/g, "");
+  if (cpf.length !== 11 || /^([0-9])\1{10}$/.test(cpf)) return null;
+
+  let sum = 0;
+  for (let index = 0; index < 9; index += 1) sum += Number(cpf[index]) * (10 - index);
+  let digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  if (digit !== Number(cpf[9])) return null;
+
+  sum = 0;
+  for (let index = 0; index < 10; index += 1) sum += Number(cpf[index]) * (11 - index);
+  digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  return digit === Number(cpf[10]) ? cpf : null;
+}
+
+function ensurePaymentCustomerCpf(cpf?: string | null) {
+  const normalized = normalizeCpf(cpf);
+  if (normalized) return normalized;
+  const error = new Error("Informe um CPF válido no seu perfil antes de pagar.") as Error & {
+    statusCode?: number;
+    code?: string;
+  };
+  error.statusCode = 422;
+  error.code = "CUSTOMER_DOCUMENT_REQUIRED";
+  throw error;
+}
+
 function getPaymentProviderFailure(error: unknown) {
   const typed = error as Error & {
     code?: string;
@@ -198,26 +227,32 @@ export const paymentOrchestrator = {
     const providerName = input.provider || policy.provider || "asaas";
     const provider = createPaymentProvider(providerName);
 
-    const existing = await PaymentGatewayCustomer.findOne({
-      userId: new mongoose.Types.ObjectId(input.userId),
-      provider: provider.name,
-    });
-
-    if (existing) {
-      return existing;
-    }
-
     const user = await User.findById(input.userId).lean();
     if (!user) {
       throw new Error("Usuário não encontrado para criar customer no gateway.");
     }
 
-    const created = await provider.createCustomer({
+    const cpfCnpj = ensurePaymentCustomerCpf(user.cpf);
+    const existing = await PaymentGatewayCustomer.findOne({
+      userId: new mongoose.Types.ObjectId(input.userId),
+      provider: provider.name,
+    });
+
+    const customerInput = {
       name: user.name,
       email: user.email,
-      cpfCnpj: user.cpf || null,
+      cpfCnpj,
       mobilePhone: user.phone || null,
-    });
+    };
+
+    if (existing) {
+      const updated = await provider.updateCustomer(existing.providerCustomerId, customerInput);
+      existing.metadata = updated.raw;
+      await existing.save();
+      return existing;
+    }
+
+    const created = await provider.createCustomer(customerInput);
 
     return PaymentGatewayCustomer.create({
       userId: new mongoose.Types.ObjectId(input.userId),

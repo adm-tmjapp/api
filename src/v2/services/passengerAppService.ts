@@ -87,6 +87,28 @@ function ensureObjectId(value: string, message = "ID inválido.") {
   }
 }
 
+function normalizeCpf(value?: string | null) {
+  const cpf = String(value || "").replace(/\D/g, "");
+  if (cpf.length !== 11 || /^([0-9])\1{10}$/.test(cpf)) return null;
+
+  let sum = 0;
+  for (let index = 0; index < 9; index += 1) sum += Number(cpf[index]) * (10 - index);
+  let digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  if (digit !== Number(cpf[9])) return null;
+
+  sum = 0;
+  for (let index = 0; index < 10; index += 1) sum += Number(cpf[index]) * (11 - index);
+  digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  return digit === Number(cpf[10]) ? cpf : null;
+}
+
+function maskCpf(value?: string | null) {
+  const cpf = normalizeCpf(value);
+  return cpf ? `***.***.***-${cpf.slice(-2)}` : null;
+}
+
 function getFirebaseDatabaseUrl(): string {
   return (
     process.env.FIREBASE_DATABASE_URL ||
@@ -290,18 +312,22 @@ export const passengerAppService = {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      cpfMasked: maskCpf(user.cpf),
+      hasCpf: !!normalizeCpf(user.cpf),
       profilePhoto: user.profilePhoto || null,
     };
   },
 
   async updateProfile(
     passengerUserId: string,
-    input: { name?: string; phone?: string },
+    input: { name?: string; phone?: string; cpf?: string },
   ) {
     await ensurePassenger(passengerUserId);
 
     const name = String(input.name || "").trim();
     const phone = String(input.phone || "").trim();
+    const rawCpf = String(input.cpf || "").trim();
+    const cpf = rawCpf ? normalizeCpf(rawCpf) : null;
     if (!name || !phone) {
       throw new PassengerAppServiceError(
         422,
@@ -310,9 +336,18 @@ export const passengerAppService = {
       );
     }
 
+    if (rawCpf && !cpf) {
+      throw new PassengerAppServiceError(
+        422,
+        "VALIDATION_ERROR",
+        "Informe um CPF válido.",
+        { field: "cpf" },
+      );
+    }
+
     const user = await User.findByIdAndUpdate(
       passengerUserId,
-      { $set: { name, phone } },
+      { $set: { name, phone, ...(cpf ? { cpf } : {}) } },
       { new: true },
     );
     if (!user) {
@@ -328,6 +363,8 @@ export const passengerAppService = {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      cpfMasked: maskCpf(user.cpf),
+      hasCpf: !!normalizeCpf(user.cpf),
       profilePhoto: user.profilePhoto || null,
     };
   },

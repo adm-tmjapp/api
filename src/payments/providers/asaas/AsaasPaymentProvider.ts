@@ -144,6 +144,26 @@ export class AsaasPaymentProvider implements PaymentProvider {
     };
   }
 
+  async updateCustomer(
+    providerCustomerId: string,
+    input: PaymentProviderCustomerInput,
+  ): Promise<PaymentProviderCustomerResult> {
+    const raw = await this.request(`/customers/${encodeURIComponent(providerCustomerId)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: input.name,
+        email: input.email,
+        cpfCnpj: input.cpfCnpj || undefined,
+        mobilePhone: input.mobilePhone || undefined,
+      }),
+    });
+
+    return {
+      providerCustomerId: String(raw.id || providerCustomerId),
+      raw,
+    };
+  }
+
   async tokenizeCard(
     input: PaymentProviderTokenizeCardInput,
   ): Promise<PaymentProviderTokenizeCardResult> {

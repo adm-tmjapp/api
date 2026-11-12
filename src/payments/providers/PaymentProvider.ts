@@ -98,6 +98,11 @@ export interface PaymentProvider {
     input: PaymentProviderCustomerInput,
   ): Promise<PaymentProviderCustomerResult>;
 
+  updateCustomer(
+    providerCustomerId: string,
+    input: PaymentProviderCustomerInput,
+  ): Promise<PaymentProviderCustomerResult>;
+
   tokenizeCard(
     input: PaymentProviderTokenizeCardInput,
   ): Promise<PaymentProviderTokenizeCardResult>;
