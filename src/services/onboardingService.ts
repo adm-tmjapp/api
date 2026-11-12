@@ -153,10 +153,26 @@ export class OnboardingService {
 
     const canDrive = isCompleted && !isUnderReview;
 
+    const blockingReasons = Object.entries(steps)
+      .filter(([, step]) => !step.completed)
+      .map(([key, step]) => {
+        const labels: Record<string, string> = {
+          profilePhoto: "foto de perfil",
+          email: "verificação de e-mail",
+          phone: "verificação de telefone",
+          documents: "documentos da CNH",
+          criminalRecord: "antecedentes criminais",
+          vehicle: "cadastro do veículo",
+          vehiclePhotos: "fotos do veículo",
+        };
+        return `${labels[key] || key}${(step as any).underReview ? " em análise" : " pendente"}`;
+      });
+
     return {
       isCompleted,
       isUnderReview,
       canDrive,
+      blockingReasons,
       steps,
     };
   }

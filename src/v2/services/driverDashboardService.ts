@@ -383,10 +383,14 @@ export const driverDashboardService = {
 
       const onboarding = await OnboardingService.buildDriverOnboarding(user as any);
       if (!onboarding.canDrive) {
+        const reasons = onboarding.blockingReasons ?? [];
+        const detail = reasons.length
+          ? ` Pendências: ${reasons.join(", ")}.`
+          : " Conclua as etapas de validação para ficar online.";
         throw new ServiceError(
           403,
           "DRIVER_NOT_ACTIVE",
-          "Seu cadastro de motorista ainda não está aprovado para ficar online.",
+          `Seu cadastro de motorista ainda não está aprovado para ficar online.${detail}`,
         );
       }
     }

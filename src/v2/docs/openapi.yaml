@@ -3973,7 +3973,7 @@ components:
 
     OnboardingStatus:
       type: object
-      required: [isCompleted, isUnderReview, canDrive, steps]
+      required: [isCompleted, isUnderReview, canDrive, blockingReasons, steps]
       properties:
         isCompleted:
           type: boolean
@@ -3981,6 +3981,11 @@ components:
           type: boolean
         canDrive:
           type: boolean
+        blockingReasons:
+          type: array
+          items:
+            type: string
+          description: Pendências legíveis que impedem o motorista de ficar online.
         steps:
           type: object
           properties:
