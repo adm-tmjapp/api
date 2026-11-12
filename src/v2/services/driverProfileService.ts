@@ -4,6 +4,7 @@ import DriverDocument from "../../models/DriverDocument";
 import Ride from "../../models/Ride";
 import User from "../../models/User";
 import Vehicle from "../../models/Vehicle";
+import DriverDocumentService from "../../services/driverDocumentService";
 
 type DocumentStatus = "pending" | "approved" | "rejected";
 
@@ -326,7 +327,9 @@ export const driverProfileService = {
       email: user.email,
       phone: user.phone,
       cpfMasked: maskCpf(user.cpf),
-      profilePhotoUrl: user.profilePhoto || null,
+      profilePhotoUrl: await DriverDocumentService.refreshStorageUrl(
+        user.profilePhoto,
+      ),
       partnerSince: getPartnerSince(driver, user),
       rating,
       totalRides,

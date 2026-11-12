@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import path from "node:path";
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 
 import userRoutes from "./routes/userRoutes";
 import rideRoutes from "./routes/rideRoutes";
@@ -27,6 +28,12 @@ const PORT = Number(process.env.PORT) || 8080;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  const requestId = req.header("x-request-id") || randomUUID();
+  res.setHeader("x-request-id", requestId);
+  res.locals.requestId = requestId;
+  next();
+});
 
 // Swagger docs
 app.use(

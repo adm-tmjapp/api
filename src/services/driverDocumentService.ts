@@ -29,6 +29,27 @@ function getStorageBucket() {
 }
 
 export class DriverDocumentService {
+  static async refreshStorageUrl(fileUrl?: string | null) {
+    if (!fileUrl) return fileUrl || null;
+
+    try {
+      const parsed = new URL(fileUrl);
+      if (parsed.hostname !== "storage.googleapis.com") return fileUrl;
+
+      const parts = parsed.pathname
+        .split("/")
+        .filter(Boolean)
+        .map((part) => decodeURIComponent(part));
+      const bucketName = parts.shift();
+      const objectName = parts.join("/");
+      if (!bucketName || !objectName) return fileUrl;
+
+      return buildStorageFileUrl(bucketName, objectName);
+    } catch (_) {
+      return fileUrl;
+    }
+  }
+
   static async createDocument(
     data: Partial<IDriverDocument> & { fileBase64?: string; filename?: string }
   ) {
