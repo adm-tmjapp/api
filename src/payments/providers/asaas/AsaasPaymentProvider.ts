@@ -272,6 +272,22 @@ export class AsaasPaymentProvider implements PaymentProvider {
     };
   }
 
+  async getPayment(providerPaymentId: string): Promise<PaymentProviderCreateCardChargeResult> {
+    const paymentId = String(providerPaymentId || "").trim();
+    if (!paymentId) throw new Error("ID da cobrança Asaas não informado.");
+
+    const payment = await this.request(`/payments/${encodeURIComponent(paymentId)}`);
+    return {
+      providerPaymentId: String(payment.id || paymentId),
+      status: normalizeAsaasStatus(String(payment.status || "")),
+      invoiceUrl: payment.invoiceUrl ? String(payment.invoiceUrl) : null,
+      receiptUrl: payment.transactionReceiptUrl
+        ? String(payment.transactionReceiptUrl)
+        : null,
+      raw: payment,
+    };
+  }
+
   async findPaymentByExternalReference(
     input: PaymentProviderFindPaymentInput,
   ): Promise<PaymentProviderCreateCardChargeResult | null> {

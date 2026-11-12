@@ -35,6 +35,14 @@ export const paymentWebhookProcessor = {
         })
       : null;
 
+    if (!ridePayment && event.providerPaymentId) {
+      console.warn("[payment-webhook] payment not found for provider event", {
+        provider: provider.name,
+        providerEvent: event.providerEvent,
+        providerPaymentId: event.providerPaymentId,
+      });
+    }
+
     let storedEvent;
     try {
       storedEvent = await RidePaymentEvent.create({
@@ -74,6 +82,13 @@ export const paymentWebhookProcessor = {
       }
       ridePayment.providerPayload = event.raw;
       await ridePayment.save();
+      console.info("[payment-webhook] payment status updated", {
+        provider: provider.name,
+        providerEvent: event.providerEvent,
+        providerPaymentId: event.providerPaymentId,
+        ridePaymentId: String(ridePayment._id),
+        normalizedStatus: event.status,
+      });
       if (["PAID", "AUTHORIZED"].includes(event.status)) {
         await paymentOrchestrator.activateRideAfterPayment(
           String(ridePayment.rideId),

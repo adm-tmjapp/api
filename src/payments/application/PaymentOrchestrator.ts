@@ -817,9 +817,7 @@ export const paymentOrchestrator = {
       RidePayment.findOne({
       rideId: new mongoose.Types.ObjectId(input.rideId),
       passengerId: new mongoose.Types.ObjectId(input.passengerId),
-      })
-        .sort({ createdAt: -1 })
-        .lean(),
+      }).sort({ createdAt: -1 }),
       Ride.findById(input.rideId).select("paymentExpiresAt paymentStatus").lean(),
     ]);
 
@@ -831,6 +829,36 @@ export const paymentOrchestrator = {
       error.statusCode = 404;
       error.code = "PAYMENT_NOT_FOUND";
       throw error;
+    }
+
+    const refreshWindowMs = Number(
+      process.env.PAYMENT_PROVIDER_STATUS_REFRESH_MS || 30_000,
+    );
+    const shouldRefreshProvider =
+      payment.providerPaymentId &&
+      ["PENDING", "WAITING_PIX_PAYMENT", "AUTHORIZED"].includes(payment.status) &&
+      Date.now() - payment.updatedAt.getTime() >= refreshWindowMs;
+
+    if (shouldRefreshProvider) {
+      try {
+        const provider = createPaymentProvider(payment.provider);
+        const providerPayment = await provider.getPayment(payment.providerPaymentId!);
+        if (providerPayment.status !== payment.status) {
+          payment.status = providerPayment.status;
+          payment.providerPayload = providerPayment.raw;
+          payment.invoiceUrl = providerPayment.invoiceUrl || payment.invoiceUrl;
+          payment.receiptUrl = providerPayment.receiptUrl || payment.receiptUrl;
+          payment.paidAt = providerPayment.status === "PAID" ? new Date() : payment.paidAt;
+          await payment.save();
+          await this.activateRideAfterPayment(String(payment.rideId), providerPayment.status);
+        }
+      } catch (error) {
+        console.warn("[payment-status] provider reconciliation failed", {
+          provider: payment.provider,
+          providerPaymentId: payment.providerPaymentId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     return {

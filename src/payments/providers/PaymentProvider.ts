@@ -115,6 +115,8 @@ export interface PaymentProvider {
     input: PaymentProviderCreateCardChargeInput,
   ): Promise<PaymentProviderCreateCardChargeResult>;
 
+  getPayment(providerPaymentId: string): Promise<PaymentProviderCreateCardChargeResult>;
+
   findPaymentByExternalReference(
     input: PaymentProviderFindPaymentInput,
   ): Promise<PaymentProviderCreateCardChargeResult | null>;
