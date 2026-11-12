@@ -366,7 +366,7 @@ export const driverDashboardService = {
     const isAvailable = availability === "ONLINE";
 
     const user = await User.findById(driverUserId)
-      .select("role authStatus")
+      .select("role authStatus emailVerified phoneVerified profilePhoto")
       .lean();
     if (!user || (user.role !== "driver" && user.role !== "admin")) {
       throw new ServiceError(404, "DRIVER_NOT_FOUND", "Motorista não encontrado.");
