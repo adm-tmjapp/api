@@ -635,6 +635,7 @@ export const passengerAppService = {
         brand: method.brand || null,
         last4: method.last4 || null,
         holderName: method.holderName || null,
+        expiry: (method as any).expiry || null,
         label: method.label || null,
         isDefault: !!method.isDefault,
         status: method.status || "ACTIVE",
